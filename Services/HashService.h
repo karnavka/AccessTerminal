@@ -1,0 +1,8 @@
+//
+// Created by karnavka on 10/15/26.
+//
+
+#ifndef ACCESSTERMINAL_HASHSERVICE_H
+#define ACCESSTERMINAL_HASHSERVICE_H
+
+#endif //ACCESSTERMINAL_HASHSERVICE_H

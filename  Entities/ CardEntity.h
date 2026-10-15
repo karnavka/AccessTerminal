@@ -1,0 +1,8 @@
+//
+// Created by karnavka on 10/15/26.
+//
+
+#ifndef ACCESSTERMINAL_CARDENTITY_H
+#define ACCESSTERMINAL_CARDENTITY_H
+
+#endif //ACCESSTERMINAL_CARDENTITY_H
