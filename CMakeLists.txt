@@ -12,12 +12,14 @@ target_include_directories(sqlite3 PUBLIC third_party/sqlite)
 
 add_executable(AccessTerminal
         main.cpp
-
+        Services/DataBaseInitializer.cpp
 )
 
 
 target_include_directories(AccessTerminal PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(AccessTerminal PRIVATE sqlite3)
+target_compile_definitions(AccessTerminal PRIVATE
+    PROJECT_DIR="${CMAKE_SOURCE_DIR}")
 
 if (MSVC)
     target_compile_options(AccessTerminal PRIVATE /utf-8 /W4)
