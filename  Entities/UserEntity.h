@@ -1,8 +1,0 @@
-//
-// Created by karnavka on 10/15/26.
-//
-
-#ifndef ACCESSTERMINAL_USERENTITY_H
-#define ACCESSTERMINAL_USERENTITY_H
-
-#endif //ACCESSTERMINAL_USERENTITY_H
