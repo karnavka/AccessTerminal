@@ -1,8 +1,6 @@
 #include "LogRepository.h"
 #include "SqliteStatement.h"
 
-namespace {
-
 LogEntity readLog(const Statement& st) {
     LogEntity e;
     e.id        = st.columnInt(0);
@@ -11,8 +9,6 @@ LogEntity readLog(const Statement& st) {
     e.result    = logResultFromString(st.columnText(3));
     if (auto r = st.columnOptText(4)) e.reason = logReasonFromString(*r);
     return e;
-}
-
 }
 
 LogRepository::LogRepository(sqlite3* db) : db_(db) {}

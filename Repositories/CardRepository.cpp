@@ -1,8 +1,6 @@
 #include "CardRepository.h"
 #include "SqliteStatement.h"
 
-namespace {
-
 const std::string kSelectCard =
     "SELECT card_id, user_id, pin_hash, status, failed_attempts, blocked_until FROM cards ";
 
@@ -20,8 +18,6 @@ CardEntity readCard(const Statement& st) {
 std::optional<std::string> toIsoOpt(const std::optional<TimePoint>& tp) {
     if (tp) return toIso(*tp);
     return std::nullopt;
-}
-
 }
 
 CardRepository::CardRepository(sqlite3* db) : db_(db) {}

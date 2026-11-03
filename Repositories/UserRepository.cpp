@@ -1,16 +1,12 @@
 #include "UserRepository.h"
 #include "SqliteStatement.h"
 
-namespace {
-
 UserEntity readUser(const Statement& st) {
     UserEntity u;
     u.id   = st.columnInt(0);
     u.name = st.columnText(1);
     u.role = userRoleFromString(st.columnText(2));
     return u;
-}
-
 }
 
 UserRepository::UserRepository(sqlite3* db) : db_(db) {}

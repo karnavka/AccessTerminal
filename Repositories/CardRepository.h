@@ -10,7 +10,6 @@ class CardRepository {
 public:
     explicit CardRepository(sqlite3* db);
 
-
     void add(const CardEntity& card);
 
     std::optional<CardEntity> findById(const std::string& cardId) const;

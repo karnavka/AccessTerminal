@@ -24,18 +24,18 @@ struct CardEntity {
     std::vector<TimeWindow> timeWindows;        // окрема таблиця, підвантажується CardRepository
 };
 
-// inline std::string toString(CardStatus s) {
-//     switch (s) {
-//         case CardStatus::Active:  return "Active";
-//         case CardStatus::Blocked: return "Blocked";
-//         case CardStatus::Revoked: return "Revoked";
-//     }
-//     throw std::invalid_argument("Unknown CardStatus");
-// }
+inline std::string toString(CardStatus s) {
+    switch (s) {
+        case CardStatus::Active:  return "Active";
+        case CardStatus::Blocked: return "Blocked";
+        case CardStatus::Revoked: return "Revoked";
+    }
+    throw std::invalid_argument("Unknown CardStatus");
+}
 
-// inline CardStatus cardStatusFromString(const std::string& s) {
-//     if (s == "Active")  return CardStatus::Active;
-//     if (s == "Blocked") return CardStatus::Blocked;
-//     if (s == "Revoked") return CardStatus::Revoked;
-//     throw std::invalid_argument("Unknown CardStatus: " + s);
-// }
+inline CardStatus cardStatusFromString(const std::string& s) {
+    if (s == "Active")  return CardStatus::Active;
+    if (s == "Blocked") return CardStatus::Blocked;
+    if (s == "Revoked") return CardStatus::Revoked;
+    throw std::invalid_argument("Unknown CardStatus: " + s);
+}

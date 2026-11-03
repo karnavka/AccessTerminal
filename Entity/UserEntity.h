@@ -10,16 +10,16 @@ struct UserEntity{
     UserRole role;
 };
 
-// inline std::string toString(UserRole r) {
-//     switch (r) {
-//         case UserRole::User:  return "User";
-//         case UserRole::Admin: return "Admin";
-//     }
-//     throw std::invalid_argument("Unknown UserRole");
-// }
+inline std::string toString(UserRole r) {
+    switch (r) {
+        case UserRole::User:  return "User";
+        case UserRole::Admin: return "Admin";
+    }
+    throw std::invalid_argument("Unknown UserRole");
+}
  
-// inline UserRole userRoleFromString(const std::string& s) {
-//     if (s == "User")  return UserRole::User;
-//     if (s == "Admin") return UserRole::Admin;
-//     throw std::invalid_argument("Unknown UserRole: " + s);
-// }
+inline UserRole userRoleFromString(const std::string& s) {
+    if (s == "User")  return UserRole::User;
+    if (s == "Admin") return UserRole::Admin;
+    throw std::invalid_argument("Unknown UserRole: " + s);
+}
