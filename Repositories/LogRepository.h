@@ -17,8 +17,8 @@ class LogRepository {
 public:
     explicit LogRepository(sqlite3* db);
 
-    int add(const LogEntity& entry);                     // повертає id запису
-    std::vector<LogEntity> findAll() const;              // від старіших до новіших
+    int add(const LogEntity& entry);
+    std::vector<LogEntity> findAll() const;
     std::vector<LogEntity> filter(const LogFilter& f) const;
 
 private:

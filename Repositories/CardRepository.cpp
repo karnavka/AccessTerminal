@@ -1,9 +1,11 @@
 #include "CardRepository.h"
 #include "SqliteStatement.h"
 
+//це щоб не повторювати
 const std::string kSelectCard =
     "SELECT card_id, user_id, pin_hash, status, failed_attempts, blocked_until FROM cards ";
 
+//це щоб зчитати з полів бази об'єкт с++, просто хелпер функція
 CardEntity readCard(const Statement& st) {
     CardEntity c;
     c.cardId         = st.columnText(0);

@@ -1,6 +1,7 @@
 #include "UserRepository.h"
 #include "SqliteStatement.h"
 
+//це щоб зчитати з полів бази об'єкт с++, просто хелпер функція
 UserEntity readUser(const Statement& st) {
     UserEntity u;
     u.id   = st.columnInt(0);
