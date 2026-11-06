@@ -1,8 +1,26 @@
-//
-// Created by karnavka on 10/15/26.
-//
+#pragma once
+#include <sqlite3.h>
+#include <optional>
+#include <string>
+#include <vector>
+#include "../Entity/LogEntity.h"
 
-#ifndef ACCESSTERMINAL_LOGREPOSITORY_H
-#define ACCESSTERMINAL_LOGREPOSITORY_H
 
-#endif //ACCESSTERMINAL_LOGREPOSITORY_H
+struct LogFilter {
+    std::optional<LogResult> result;
+    std::optional<TimePoint> from;
+    std::optional<TimePoint> to;
+    std::optional<std::string> cardId;
+};
+
+class LogRepository {
+public:
+    explicit LogRepository(sqlite3* db);
+
+    int add(const LogEntity& entry);
+    std::vector<LogEntity> findAll() const;
+    std::vector<LogEntity> filter(const LogFilter& f) const;
+
+private:
+    sqlite3* db_;
+};

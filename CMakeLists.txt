@@ -13,6 +13,9 @@ target_include_directories(sqlite3 PUBLIC third_party/sqlite)
 add_executable(AccessTerminal
         main.cpp
         Services/DataBaseInitializer.cpp
+        Repositories/UserRepository.cpp
+        Repositories/CardRepository.cpp
+        Repositories/LogRepository.cpp
 )
 
 

@@ -1,8 +1,0 @@
-//
-// Created by karnavka on 10/15/26.
-//
-
-#ifndef ACCESSTERMINAL_LOGENTITY_H
-#define ACCESSTERMINAL_LOGENTITY_H
-
-#endif //ACCESSTERMINAL_LOGENTITY_H
