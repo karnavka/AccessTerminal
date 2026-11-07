@@ -18,6 +18,8 @@ add_executable(AccessTerminal
         Repositories/LogRepository.cpp
         Services/UserService.h
         Services/UserService.cpp
+        Services/SecurityService.cpp
+        Services/SecurityService.h
 )
 
 
