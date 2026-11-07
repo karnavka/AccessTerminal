@@ -16,6 +16,8 @@ add_executable(AccessTerminal
         Repositories/UserRepository.cpp
         Repositories/CardRepository.cpp
         Repositories/LogRepository.cpp
+        Services/UserService.h
+        Services/UserService.cpp
 )
 
 

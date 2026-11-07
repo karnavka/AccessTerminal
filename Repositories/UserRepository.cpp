@@ -33,3 +33,10 @@ std::vector<UserEntity> UserRepository::findAll() const {
     while (st.step()) users.push_back(readUser(st));
     return users;
 }
+
+bool UserRepository::hasActiveCard(int userId) const {
+    Statement st(db_, "SELECT EXISTS(SELECT 1 FROM cards WHERE user_id = ? AND status = 'Active');");
+    st.bind(1, userId);
+    st.step();
+    return st.columnInt(0) == 1;
+}
