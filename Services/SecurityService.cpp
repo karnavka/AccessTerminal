@@ -4,6 +4,7 @@
 #include"SecurityService.h"
 #include "Entity/LogEntity.h"
 #include "Repositories/SqliteStatement.h"
+#include "Entity/SecurityConfig.h"
 
 namespace {
     LogReason toLogReason(AlarmReason r) {

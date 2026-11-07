@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <stdexcept>
 #include "Repositories/SqliteStatement.h"
+#include "Entity/SecurityConfig.h"
+
 //Закоментовані логи бо тре реалізувати і то шо або в аксес полісі або я хз чи його сюди
 CardService::CardService(sqlite3 *db, CardRepository &cards, /*const HashService& hash,*/
                          SecurityConfig config, Clock clock)

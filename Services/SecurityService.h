@@ -6,14 +6,8 @@
 #define ACCESSTERMINAL_SECURITYSERVICE_H
 #include <chrono>
 #include <functional>
-
 #include "CardService.h"
 #include "sqlite3.h"
-
-struct SecurityConfig {
-    int maxFailedAttempts = 3;
-    std::chrono::minutes blockDuration{15};
-};
 
 enum AlarmReason { TooManyAttempts, ForcedOpen };
 

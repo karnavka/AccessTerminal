@@ -15,7 +15,7 @@
 #include "sqlite3.h"
 #include "Entity/TimeUtil.h"
 #include "Repositories/CardRepository.h"
-#include "SecurityService.h"
+#include "Entity/SecurityConfig.h"
 
 //#include "SecurityConfig.h"
 
