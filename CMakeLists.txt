@@ -20,6 +20,8 @@ add_executable(AccessTerminal
         Services/UserService.cpp
         Services/SecurityService.cpp
         Services/SecurityService.h
+        Services/CardService.cpp
+        Services/CardService.h
 )
 
 
