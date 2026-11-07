@@ -16,6 +16,8 @@ public:
     std::optional<UserEntity> findById(int id) const;
     //вивести всіх
     std::vector<UserEntity> findAll() const;
+    // чи має вже активну карточку
+    bool hasActiveCard(int userId) const;
 
 private:
     sqlite3* db_;
