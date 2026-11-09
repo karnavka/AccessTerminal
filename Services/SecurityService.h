@@ -7,6 +7,7 @@
 #include <chrono>
 #include <functional>
 #include "CardService.h"
+#include "LogService.h"
 #include "sqlite3.h"
 
 enum AlarmReason { TooManyAttempts, ForcedOpen };
@@ -20,8 +21,8 @@ class SecurityService {
 public:
     using AlarmSink = std::function<void(AlarmReason)>;
 
-    SecurityService(sqlite3 *db, CardService &cards, /*LogService& logs,*/ AlarmSink alarmSink)
-        : db_(db), cards_(cards), /*logs_(logs),*/ alarmSink_(std::move(alarmSink)) {
+    SecurityService(sqlite3 *db, CardService &cards, LogService& logs, AlarmSink alarmSink)
+        : db_(db), cards_(cards), logs_(logs), alarmSink_(std::move(alarmSink)) {
     }
 
     WrongPinOut wrongPinOut(const std::string &cardId);
@@ -35,7 +36,7 @@ public:
 private:
     sqlite3 *db_;
     CardService &cards_;
-    //LogService&  logs_;
+    LogService&  logs_;
     AlarmSink alarmSink_;
 };
 #endif //ACCESSTERMINAL_SECURITYSERVICE_H

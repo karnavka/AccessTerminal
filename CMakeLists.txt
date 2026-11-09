@@ -24,6 +24,8 @@ add_executable(AccessTerminal
         Services/CardService.h
         Entity/SecurityConfig.h
         Services/AccessPolicyService.cpp
+        Services/LogService.h
+        Services/LogService.cpp
 )
 
 

@@ -24,7 +24,7 @@ WrongPinOut SecurityService::wrongPinOut(const std::string &cardId) {
 
         auto card = cards_.getCard(cardId);
         if (!card) {
-            //logs_.logDenied(cardId, LogReason::UnknownCard);
+            logs_.log(cardId, LogResult::Denied, LogReason::UnknownCard);
             sp.release();
             return o;
         }
@@ -32,19 +32,20 @@ WrongPinOut SecurityService::wrongPinOut(const std::string &cardId) {
             case CardStatus::Active:
                 break;
             case CardStatus::Blocked:
-                // logs_.logDenied(cardId, LogReason::Blocked);
+                logs_.log(cardId, LogResult::Denied, LogReason::Blocked);
                 sp.release();
                 return o;
             case CardStatus::Revoked:
-                // logs_.logDenied(cardId, LogReason::Revoked);
+                logs_.log(cardId, LogResult::Denied, LogReason::Revoked);
                 sp.release();
                 return o;
         }
 
         const FailedAttemptResult r = cards_.registerFailedAttempt(cardId);
-        //logs_.logDenied(cardId, LogReason::WrongPin);
+        logs_.log(cardId, LogResult::Denied, LogReason::WrongPin);
+
         if (r.blocked) {
-            // logs_.logAlarm(cardId, toLogReason(TooManyAttempts));
+            logs_.log(cardId, LogResult::Alarm, LogReason::TooManyAttempts);
             o.cardBlok = true;
             alarm = true;
         } else {
@@ -61,14 +62,14 @@ WrongPinOut SecurityService::wrongPinOut(const std::string &cardId) {
 void SecurityService::onSuccessfulPin(const std::string &cardId) {
     Savepoint sp(db_, "ok_pin");
     cards_.resetFailedAttempt(cardId);
-    // logs_.logSuccess(cardId);
+    logs_.log(cardId, LogResult::Success);
     sp.release();
 }
 
 void SecurityService::triggerAlarm(const std::string &cardId, AlarmReason reason) {
     {
         Savepoint sp(db_, "alarm");
-        //logs_.logAlarm(cardId, toLogReason(reason));
+        logs_.log(cardId, LogResult::Alarm, toLogReason(reason));
         sp.release();
     }
     alarmSink_(reason);
@@ -77,7 +78,7 @@ void SecurityService::triggerAlarm(const std::string &cardId, AlarmReason reason
 void SecurityService::triggerAlarm(AlarmReason reason) {
     {
         Savepoint sp(db_, "alarm");
-        // logs_.logAlarmNoCard(toLogReason(reason));
+        logs_.log(std::nullopt, LogResult::Alarm, toLogReason(reason));
         sp.release();
     }
     alarmSink_(reason);
