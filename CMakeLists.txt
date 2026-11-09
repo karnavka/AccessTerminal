@@ -26,6 +26,7 @@ add_executable(AccessTerminal
         Services/AccessPolicyService.cpp
         Services/LogService.h
         Services/LogService.cpp
+        "  Controllers/AdminController.cpp"
 )
 
 
