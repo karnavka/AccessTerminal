@@ -9,9 +9,9 @@
 #include "Entity/SecurityConfig.h"
 
 //Закоментовані логи бо тре реалізувати і то шо або в аксес полісі або я хз чи його сюди
-CardService::CardService(sqlite3 *db, CardRepository &cards, /*const HashService& hash,*/
+CardService::CardService(sqlite3 *db, CardRepository &cards, const HashService& hash,
                          SecurityConfig config, Clock clock)
-    : db_(db), cards_(cards), /* hash_(hash),*/ config_(config), clock_(std::move(clock)) {
+    : db_(db), cards_(cards), hash_(hash), config_(config), clock_(std::move(clock)) {
 }
 //кількст
 void CardService::validatePin(const std::string &pin) {
@@ -56,7 +56,7 @@ void CardService::issueCard(int userId, const std::string &cardId, const std::st
     CardEntity card;
     card.cardId = cardId;
     card.userId = userId;
-    // card.pinHash        = hash_.hash(pin);
+    card.pinHash = hash_.hash(pin);
     card.status = CardStatus::Active;
     card.failedAttempts = 0;
     card.timeWindows = windows;
@@ -105,7 +105,7 @@ void CardService::unblockCard(const std::string &cardId) {
     save(card);
     sp.release();
 }
-/*
+
 void CardService::changePin(const std::string &cardId, const std::string &newPin) {
     validatePin(newPin);
     Savepoint sp(db_, "change_pin");
@@ -113,14 +113,14 @@ void CardService::changePin(const std::string &cardId, const std::string &newPin
     if (card.status == CardStatus::Revoked) {
         throw std::invalid_argument("Картка відкликана");
     }
-    // card.pinHash = hash_.hash(newPin);
+    card.pinHash = hash_.hash(newPin);
     save(card);
     sp.release();
-}*/
+}
 
 void CardService::validateTimeWindow(const TimeWindow& window) {
-    if (window.dayOfWeek < 1 || window.dayOfWeek > 7) {
-        throw std::invalid_argument("День тижня має бути від 1 до 7");
+    if (window.dayOfWeek < 0 || window.dayOfWeek > 6) {
+        throw std::invalid_argument("День тижня має бути від 0 до 6");
     }
     if (window.startMinute < 0 || window.startMinute >= 1440 || window.endMinute <= 0 || window.endMinute >= 1440) {
         throw std::invalid_argument("Некоректний час");

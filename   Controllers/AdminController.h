@@ -3,11 +3,12 @@
 #include "../Services/UserService.h"
 #include "../Services/CardService.h"
 #include "../Services/LogService.h"
+#include "../Services/HashService.h"
 // TODO додати потім сервіси для хешів і для аксес перевірки
 
 class AdminController {
 public:
-    AdminController(UserService& users, CardService& cards, LogService& logs);
+    AdminController(UserService& users, CardService& cards, LogService& logs, HashService& hash);
 
     void run();
 
@@ -49,4 +50,5 @@ private:
     UserService& _users;
     CardService& _cards;
     LogService& _logs;
+    HashService& _hash;
 };

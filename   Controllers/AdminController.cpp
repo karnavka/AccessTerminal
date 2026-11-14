@@ -7,12 +7,13 @@
 #include <limits>
 #include <sstream>
 
-AdminController::AdminController(UserService& users, CardService& cards, LogService& logs)
-    : _users(users), _cards(cards), _logs(logs) {}
+AdminController::AdminController(UserService& users, CardService& cards, LogService& logs, HashService& hash)
+    : _users(users), _cards(cards), _logs(logs), _hash(hash) {}
 
 // запуск ракєти
 void AdminController::run() {
     if (!login()) {
+
         return;
     }
     showMenu();
@@ -25,20 +26,61 @@ bool AdminController::login() {
     std::string pin;
 
     std::cout << "Введіть ID карточки: ";
-    std::getline(std::cin, cardId);
+    if (!std::getline(std::cin, cardId) || cardId.empty()) {
+        std::cout << "Некоректний ID картки.\n";
+        return false;
+    }
 
-    std::cout << "Введіть PIN: ";
-    std::getline(std::cin, pin);
+    auto card = _cards.getCard(cardId);
+    
+    if (!card) {
+        std::cout << "Картку не знайдено.\n";
+        return false;
+    }
 
-    // TODO: cardId і pin у AccessTerminalService
-    // перевірити всьо що треба і отримати userId власника картки
+    if (!_users.isAdmin(card->userId)) {
+        std::cout << "Ви не адміністратор! Ану пішли геть!\n";
+        return false;
+    }
 
-    // TODO: перевірити роль користувача через UserService::isAdmin
-    // if (!_users.isAdmin(userId)) {
-    //     std::cout << "Ви не адміністратор! Ану пішли геть!\n";
-    //     return false;
-    // }
-    return true; // замінити!!! в залежності від перевірки
+    try {
+
+        if (_cards.releaseIfBlockExpired(cardId)){
+            card = _cards.getCard(cardId);
+            if (!card) {
+                std::cout << "Картку не знайдено.\n";
+                return false;
+            }
+        }
+
+        if (card->status == CardStatus::Revoked) {
+            std::cout << "Картку відкликано.\n";
+            return false;
+        }
+
+        if (card->status == CardStatus::Blocked) {
+            std::cout << "Картку заблоковано.\n";
+            return false;
+        }
+
+        //admin привілейована особистість і може вводити пін скільки хоче
+        //TODO змінити або вилалити коментар
+        while (!_hash.verify(pin, card->pinHash)) {
+            std::cout << "Введіть PIN: ";
+            if (!std::getline(std::cin, pin) || pin.empty()) {
+                std::cout << "Некоректний PIN.\n";
+                return false;
+            }
+        }
+
+        std::cout << "Вхід успішний.\n";
+        return true;
+
+    } catch (const std::exception& e) {
+
+        std::cout << "Помилка під час входу: " << e.what() << '\n';
+        return false;
+    }
 }
 
 void AdminController::showMenu() {
@@ -53,6 +95,8 @@ void AdminController::showMenu() {
         std::cout << "0. Вийти\n";
         std::cout << "Виберіть варіант: ";
 
+        //TODO
+        //fix control + D
         std::cin >> choice;
 
         if (std::cin.fail()) {
@@ -566,9 +610,10 @@ void AdminController::issueCard() {
             windows.push_back(window);
         }
 
-        // TODO: HashService - безпечне хешування PIN перед його збереженням
+        //не кидає помилку в остаточній реалізації?
+        std::string hashedPin = _hash.hash(pin);
 
-        _cards.issueCard(userId, cardId, pin, windows);
+        _cards.issueCard(userId, cardId, hashedPin, windows);
         std::cout << "Картку успішно додано!\n";
     } catch (const std::exception& e) {
         std::cout << "Не вдалося додати картку: " << e.what() << '\n';
@@ -918,5 +963,31 @@ void AdminController::unblockCard(const std::string& cardId) {
 }
 
 void AdminController::changePin(const std::string& cardId) {
-    // TODO з HashService і певно CardService (ну там подивитесь)
+    std::string newPin;
+    while(true){
+
+        std::cout << "Введіть новий PIN (0 - скасувати): ";
+
+        if(!std::getline(std::cin, newPin)){
+            std::cout << "Зміну PIN скасовано.\n";
+            return;
+        }
+        if (newPin == "0") {
+            std::cout << "Зміну PIN скасовано.\n";
+            return;
+        }
+
+        try {
+            _cards.changePin(cardId, newPin);
+
+            std::cout << "PIN успішно змінено!\n";
+            return;
+        } catch (const std::invalid_argument& e) {
+            std::cout << e.what() << '\n';
+        }catch (const std::exception& e) {
+            std::cout << "Не вдалося змінити PIN: "
+                      << e.what() << '\n';
+            return;
+        }
+    }
 }

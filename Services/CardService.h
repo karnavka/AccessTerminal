@@ -16,6 +16,7 @@
 #include "Entity/TimeUtil.h"
 #include "Repositories/CardRepository.h"
 #include "Entity/SecurityConfig.h"
+#include "Services/HashService.h"
 
 //#include "SecurityConfig.h"
 
@@ -28,7 +29,7 @@ class CardService {
 public:
     using Clock = std::function<TimePoint()>;
 
-    CardService(sqlite3 *db, CardRepository &cards, /*const HashService& hash,*/
+    CardService(sqlite3 *db, CardRepository &cards, const HashService& hash,
                 SecurityConfig config,
                 Clock clock = [] { return std::chrono::system_clock::now(); });
 
@@ -41,7 +42,7 @@ public:
 
     void unblockCard(const std::string &cardId);
 
-   // void changePin(const std::string &cardId, const std::string &newPin);
+    void changePin(const std::string &cardId, const std::string &newPin);
 
     void addTimeWindow(const std::string& cardId, const TimeWindow& window);
 
@@ -74,7 +75,7 @@ private:
 
     sqlite3 *db_;
     CardRepository &cards_;
-    //  const HashService& hash_;
+    const HashService& hash_;
     SecurityConfig config_;
     Clock clock_;
 };
