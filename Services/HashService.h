@@ -1,8 +1,13 @@
-//
-// Created by karnavka on 10/15/26.
-//
+#pragma once
 
-#ifndef ACCESSTERMINAL_HASHSERVICE_H
-#define ACCESSTERMINAL_HASHSERVICE_H
+#include <string>
 
-#endif //ACCESSTERMINAL_HASHSERVICE_H
+class HashService {
+public:
+    std::string hash(const std::string& pin) const;
+
+    bool verify(
+        const std::string& pin,
+        const std::string& storedHash
+    ) const;
+};
