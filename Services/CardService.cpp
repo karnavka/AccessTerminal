@@ -40,7 +40,7 @@ void CardService::issueCard(int userId, const std::string &cardId, const std::st
     if (cardId.empty()) throw std::invalid_argument("Порожній ідентифікатор картки");
     validatePin(pin);
 
-    //validateWindows(windows);
+    validateWindows(windows);
 
     Savepoint sp(db_, "issue_card");
 
@@ -68,6 +68,9 @@ void CardService::issueCard(int userId, const std::string &cardId, const std::st
 void CardService::revokeCard(const std::string &cardId) {
     Savepoint sp(db_, "revoke_card");
     CardEntity card = loadOrThrow(cardId);
+    if (card.status == CardStatus::Revoked) {
+        throw std::invalid_argument("Картка вже відкликана");
+    }
     if (card.status != CardStatus::Revoked) {
         card.status = CardStatus::Revoked;
         card.blockedUntil.reset();
@@ -114,17 +117,74 @@ void CardService::changePin(const std::string &cardId, const std::string &newPin
     save(card);
     sp.release();
 }*/
-/*
-void CardService::updateTimeWindows(const std::string &cardId, const std::vector<TimeWindow> &windows) {
-    //validateWindows(windows);
-    Savepoint sp(db_, "update_windows");
+
+void CardService::validateTimeWindow(const TimeWindow& window) {
+    if (window.dayOfWeek < 1 || window.dayOfWeek > 7) {
+        throw std::invalid_argument("День тижня має бути від 1 до 7");
+    }
+    if (window.startMinute < 0 || window.startMinute >= 1440 || window.endMinute <= 0 || window.endMinute >= 1440) {
+        throw std::invalid_argument("Некоректний час");
+    }
+    if (window.startMinute >= window.endMinute) {
+        throw std::invalid_argument("Час початку має бути раніше часу завершення");
+    }
+}
+
+// + щоб не перетиналися
+void CardService::validateWindows(const std::vector<TimeWindow>& windows) {
+    for (const TimeWindow& window : windows) {
+        validateTimeWindow(window);
+    }
+    for (size_t i = 0; i < windows.size(); i++) {
+        for (size_t j = i + 1; j < windows.size(); j++) {
+            if (windows[i].dayOfWeek == windows[j].dayOfWeek && windows[i].startMinute < windows[j].endMinute &&
+                windows[j].startMinute < windows[i].endMinute) {
+                throw std::invalid_argument("Часові вікна не повинні перетинатися");
+            }
+        }
+    }
+}
+
+void CardService::addTimeWindow(const std::string& cardId, const TimeWindow& window) {
+    Savepoint sp(db_, "add_time_window");
     CardEntity card = loadOrThrow(cardId);
     if (card.status == CardStatus::Revoked) {
         throw std::invalid_argument("Картка відкликана");
     }
-    cards_.replaceTimeWindows(cardId, windows);
+    card.timeWindows.push_back(window);
+    validateWindows(card.timeWindows);
+    cards_.replaceTimeWindows(cardId, card.timeWindows);
     sp.release();
-}*/
+}
+
+void CardService::removeTimeWindow(const std::string& cardId, int windowIndex) {
+    Savepoint sp(db_, "remove_time_window");
+    CardEntity card = loadOrThrow(cardId);
+    if (card.status == CardStatus::Revoked) {
+        throw std::invalid_argument("Картка відкликана");
+    }
+    if (windowIndex < 0 || windowIndex >= static_cast<int>(card.timeWindows.size())) {
+        throw std::invalid_argument("Неправильний номер часового вікна");
+    }
+    card.timeWindows.erase(card.timeWindows.begin() + windowIndex);
+    cards_.replaceTimeWindows(cardId, card.timeWindows);
+    sp.release();
+}
+
+void CardService::editTimeWindow(const std::string& cardId, int windowIndex, const TimeWindow& newWindow) {
+    Savepoint sp(db_, "edit_time_window");
+    CardEntity card = loadOrThrow(cardId);
+    if (card.status == CardStatus::Revoked) {
+        throw std::invalid_argument("Картка відкликана");
+    }
+    if (windowIndex < 0 || windowIndex >= static_cast<int>(card.timeWindows.size())) {
+        throw std::invalid_argument("Неправильний номер часового вікна");
+    }
+    card.timeWindows[windowIndex] = newWindow;
+    validateWindows(card.timeWindows);
+    cards_.replaceTimeWindows(cardId, card.timeWindows);
+    sp.release();
+}
 
 FailedAttemptResult CardService::registerFailedAttempt(const std::string &cardId) {
     Savepoint sp(db_, "failed_attempt");

@@ -43,7 +43,11 @@ public:
 
    // void changePin(const std::string &cardId, const std::string &newPin);
 
-   // void updateTimeWindows(const std::string &cardId, const std::vector<TimeWindow> &windows);
+    void addTimeWindow(const std::string& cardId, const TimeWindow& window);
+
+    void removeTimeWindow(const std::string& cardId, int windowIndex);
+
+    void editTimeWindow(const std::string& cardId, int windowIndex, const TimeWindow& newWindow);
 
     FailedAttemptResult registerFailedAttempt(const std::string &cardId);
 
@@ -63,6 +67,10 @@ private:
     void save(const CardEntity &card);
 
     static void validatePin(const std::string &pin);
+
+    static void validateTimeWindow(const TimeWindow& window);
+
+    static void validateWindows(const std::vector<TimeWindow>& windows);
 
     sqlite3 *db_;
     CardRepository &cards_;

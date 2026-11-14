@@ -23,8 +23,10 @@ add_executable(AccessTerminal
         Services/CardService.cpp
         Services/CardService.h
         Entity/SecurityConfig.h
+        Services/AccessPolicyService.cpp
         Services/LogService.h
         Services/LogService.cpp
+        "  Controllers/AdminController.cpp"
         Services/HashService.cpp
 )
 
