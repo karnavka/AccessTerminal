@@ -25,6 +25,7 @@ add_executable(AccessTerminal
         Entity/SecurityConfig.h
         Services/LogService.h
         Services/LogService.cpp
+        Services/HashService.cpp
 )
 
 
@@ -37,4 +38,16 @@ if (MSVC)
     target_compile_options(AccessTerminal PRIVATE /utf-8 /W4)
 else()
     target_compile_options(AccessTerminal PRIVATE -Wall -Wextra)
+endif()
+
+if(WIN32)
+    target_link_libraries(AccessTerminal PRIVATE bcrypt)
+
+elseif(APPLE)
+    find_library(SECURITY_FRAMEWORK Security REQUIRED)
+
+    target_link_libraries(
+        AccessTerminal PRIVATE
+        ${SECURITY_FRAMEWORK}
+    )
 endif()
