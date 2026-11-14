@@ -1,34 +1,32 @@
-#include "Services/DataBaseInitializer.h"
 #include <string>
 #include <cstdio>
-#include "Services/HashService.h"
 #include <cassert>
+#include <sstream>
+#include <iostream>
 
+#include "Services/DataBaseInitializer.h"
+#include "Services/HashService.h"
+#include "Services/UserService.h"
+#include "Services/AccessPolicyService.h"
+#include "Services/LogService.h"
 
-//згенерований чек щоб подивитися що всьо працює :P
-int check(const DataBaseInitializer& db){
-    const char* sql =
-        "SELECT u.name, u.role, c.card_id, COUNT(w.id) "
-        "FROM users u "
-        "JOIN cards c ON c.user_id = u.id "
-        "LEFT JOIN card_time_windows w ON w.card_id = c.card_id "
-        "GROUP BY c.card_id ORDER BY c.card_id;";
+#include "Repositories/UserRepository.h"
+#include "Repositories/CardRepository.h"
+#include "Repositories/LogRepository.h"
 
-    sqlite3_stmt* st = nullptr;
-    if (sqlite3_prepare_v2(db.getConnection(), sql, -1, &st, nullptr) != SQLITE_OK) {
-        std::printf("Check failed: %s\n", sqlite3_errmsg(db.getConnection()));
-        return 1;
-    }
-    while (sqlite3_step(st) == SQLITE_ROW) {
-        std::printf("%s | %s | %s | windows: %d\n",
-                    reinterpret_cast<const char*>(sqlite3_column_text(st, 0)),
-                    reinterpret_cast<const char*>(sqlite3_column_text(st, 1)),
-                    reinterpret_cast<const char*>(sqlite3_column_text(st, 2)),
-                    sqlite3_column_int(st, 3));
-    }
-    sqlite3_finalize(st);
+#include "  Controllers/AdminController.h"
+
+#include "tests_part/TestsPart.h"
+
+//returns: ok - 0 ; error - 1
+int createDataOnFirstOpen(DataBaseInitializer& dbInit) {
+    if (!dbInit.initialize()) return 1;
+    int ch = check(dbInit);
+    if (ch == 1 ) return 1;
     return 0;
 }
+
+
 
 int main() {
     std::string dbPath     = std::string(PROJECT_DIR) + "/data/db.sqlite3";
@@ -39,24 +37,35 @@ int main() {
 
     if (!dbInit.open())       return 1;
 
-    HashService service;
+    // all inits
 
-    auto hash1 = service.hash("123456");
-    auto hash2 = service.hash("123456");
+    sqlite3* db = dbInit.getConnection();
 
-    // assert(hash1 != hash2);
+    // Repositories
+    UserRepository userRepo(db);
+    CardRepository cardRepo(db);
+    LogRepository logRepo(db);
 
-    assert(service.verify("123456", hash1));
-    assert(!service.verify("123457", hash1));
-    assert(!service.verify("123456", hash2) == false);
+    // Services
+    UserService users(userRepo);
 
-    //розкоментуйте ТІЛЬКИ на першому запуску!
-    //бо будуть постійно дописуватися рядочки
-    //або: видалити db.sqlite3 і запустити знову
+    HashService hash;
+    SecurityConfig securityConfig{};
+    testHash();
 
-    // if (!dbInit.initialize()) return 1;
-    // int ch = check(dbInit);
-    // if (ch == 1 ) return 1;
+    CardService cards(db, cardRepo, hash, securityConfig);
+    LogService logs(logRepo);    
+
+    AdminController admin(users, cards, logs, hash);
+
+    //tests additional
+    testAdmin(admin);
+
+
+    //розкоментуйте на першому запуску
+    //або для оновлення БД: видалити data/db.sqlite3, виконати код
+    // if (createDataOnFirstOpen(dbInit) == 1) return 1;
+    
 
     std::printf("Database ready\n");
 
@@ -65,15 +74,6 @@ int main() {
 }
 
 
-// int main() {
-//     std::cout << "Klumba access terminal\n";
 
-//     sqlite3_close(db);
-
-//     return 0;
-// }
-//
-// Created by karnavka on 10/15/26.
-//
 
 
