@@ -883,8 +883,6 @@ void AdminController::issueCard() {
     }
 
     while (true) {
-        std::cout << "Придумайте PIN для картки (0 - скасувати): ";
-        std::getline(std::cin, pin);
         std::cout << "Введіть PIN (0 - скасувати): ";
         //фікс нескінченного циклу
         if (!readLine(pin)) {
@@ -940,14 +938,14 @@ void AdminController::issueCard() {
                     std::cout << "Додавання картки скасовано.\n";
                     return;
                 }
-            window.dayOfWeek -= 1;
+            //window.dayOfWeek -= 1;
 
-            window.startMinute = readMinutes("Час початку (HH:MM)");
-
-            if (window.startMinute == -1) {
-                std::cout << "Додавання картки скасовано.\n";
-                return;
-            }
+            // window.startMinute = readMinutes("Час початку (HH:MM)");
+            //
+            // if (window.startMinute == -1) {
+            //     std::cout << "Додавання картки скасовано.\n";
+            //     return;
+            // }
 
                 window.endMinute = readMinutes("Час завершення (HH:MM)");
                 if (window.endMinute == -1) {
@@ -965,7 +963,7 @@ void AdminController::issueCard() {
 
         //наш хеш: пін хешує сам CardService::issueCard,
         //тому сюди передаємо звичайний пін (якщо хешувати і тут, то хешується двічі і validatePin не пропускає)
-        _cards.issueCard(userId, cardId, pin, windows);
+        _cards.issueCard(userId, pin, windows);
         std::cout << "Картку успішно додано!\n";
     } catch (const std::exception& e) {
         std::cout << "Не вдалося додати картку: " << e.what() << '\n';
