@@ -1,5 +1,4 @@
 #include <iostream>
-#include <sstream>
 
 #include "  Controllers/TerminalController.h"
 
@@ -8,8 +7,10 @@ TerminalController::TerminalController(
     SecurityService& security,
     AccessPolicyService& access,
     LogService& logs,
-    DoorSimulator& door
-): _cards(cards), _security(security), _access(access), _logs(logs), _door(door) {}
+    DoorSimulator& door,
+    std::chrono::seconds entryTimeout
+): _cards(cards), _security(security), _access(access), _logs(logs), _door(door),
+   _entryTimeout(entryTimeout) {}
 
 void TerminalController::run() {
     std::string input;
@@ -36,7 +37,7 @@ void TerminalController::run() {
             }
 
             case TerminalState::WaitingForPin: {
-                std::cout << "Enter PIN (0 - cancel): ";
+                std::cout << "Enter PIN (0 - cancel, !open / !close - door sensor): ";
 
                 if (!std::getline(std::cin, input)) {
                     return;
@@ -59,6 +60,9 @@ void TerminalController::run() {
                 if (!std::getline(std::cin, input)) {
                     return;
                 }
+
+                checkEntryTimeout();
+
                 if (!handleDoorCommand(input)) {
                     std::cout << "Невідома команда.\n";
                 }
@@ -98,7 +102,7 @@ void TerminalController::onCardTapped(const std::string& cardId) {
         AccessDecision decision = _access.check(cardId, std::chrono::system_clock::now());
 
         if (!decision.allowed) {
-            // log CHECK requires a reason for Denied, so always provide one
+            // CHECK в access_log вимагає причину для Denied
             denyAccess(decision.reason.value_or(LogReason::UnknownCard), cardId);
             return;
         }
@@ -124,7 +128,7 @@ void TerminalController::onPinEntered(const std::string& pin) {
 
     try {
         if (_cards.verifyPin(cardId, pin)) {
-            _security.onSuccessfulPin(cardId); // reset attempts + log Success
+            _security.onSuccessfulPin(cardId); // скидання спроб + лог Success
             grantAccess();
         } else {
             handleFailedAttempt(cardId);
@@ -139,7 +143,6 @@ void TerminalController::onPinEntered(const std::string& pin) {
 void TerminalController::handleFailedAttempt(const std::string& cardId) {
     setState(TerminalState::InvalidPin);
 
-    // registers the attempt, logs WrongPin, blocks the card + logs/raises Alarm if needed
     const WrongPinOut out = _security.wrongPinOut(cardId);
 
     if (out.cardBlok) {
@@ -147,8 +150,7 @@ void TerminalController::handleFailedAttempt(const std::string& cardId) {
         setState(TerminalState::Finished);
         return;
     }
-
-    // card disappeared / got blocked or revoked mid-session: nothing left to retry
+    
     if (out.attempts <= 0) {
         std::cout << "Картка більше недоступна.\n";
         setState(TerminalState::Finished);
@@ -161,7 +163,9 @@ void TerminalController::handleFailedAttempt(const std::string& cardId) {
 
 void TerminalController::grantAccess() {
     _door.unlock();
-    std::cout << "Доступ дозволено. Двері розблоковано.\n";
+    _entryDeadline = std::chrono::steady_clock::now() + _entryTimeout;
+    std::cout << "Доступ дозволено. Двері розблоковано ("
+              << _entryTimeout.count() << " с на вхід).\n";
     setState(TerminalState::WaitingForEntry);
 }
 
@@ -185,7 +189,7 @@ void TerminalController::onDoorOpened() {
 
     _door.simulateDoorOpened();
 
-    // forced open = door opened while it is locked (independent of terminal state)
+    // злам = двері відчинено при замкненому замку (незалежно від стану терміналу)
     if (_door.isLocked()) {
         onForcedOpened();
         return;
@@ -210,8 +214,17 @@ void TerminalController::onDoorClosed() {
 
 void TerminalController::onForcedOpened() {
     std::cout << "!!! ВЗЛОМ: двері відчинено без автентифікації !!!\n";
-    _security.triggerAlarm(AlarmReason::ForcedOpen); // logs Alarm/ForcedOpen + siren sink
-    setState(TerminalState::Finished);               // aborts any in-progress session
+    _security.triggerAlarm(AlarmReason::ForcedOpen);
+    setState(TerminalState::Finished);
+}
+
+void TerminalController::checkEntryTimeout() {
+    if (_state == TerminalState::WaitingForEntry && !_door.isOpen() &&
+        std::chrono::steady_clock::now() >= _entryDeadline) {
+        std::cout << "Час на вхід вичерпано. Двері зачинено.\n";
+        _door.lock();
+        setState(TerminalState::Finished);
+    }
 }
 
 void TerminalController::denyAccess(LogReason reason, std::optional<std::string> cardId) {

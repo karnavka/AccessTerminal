@@ -57,3 +57,16 @@ void testAdmin(AdminController& ac){
         ac.run();
     }
 }
+
+void testTerminal(TerminalController& tc){
+
+    std::string input;
+    std::cout << "хочете тестувати термінал? [y/n]" << std::endl;
+
+    if (!std::getline(std::cin, input) || (input == "n")) {
+        return;
+    }
+    if (input == "y"){
+        tc.run();
+    }
+}

@@ -9,6 +9,7 @@
 struct SecurityConfig {
     int maxFailedAttempts = 3;
     std::chrono::minutes blockDuration{15};
+    std::chrono::seconds doorOpenTimeout{5};
 };
 
 #endif //ACCESSTERMINAL_SECURITYCONFIG_H

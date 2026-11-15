@@ -3,7 +3,9 @@
 #ifndef ACCESSTERMINAL_TERMINALCONTROLLER_H
 #define ACCESSTERMINAL_TERMINALCONTROLLER_H
 
+#include <chrono>
 #include <optional>
+#include <string>
 
 #include "../Services/UserService.h"
 #include "../Services/CardService.h"
@@ -15,7 +17,7 @@
 
 class TerminalController{
 public:
-    TerminalController(CardService&, SecurityService&, AccessPolicyService&, LogService&, DoorSimulator&);
+    TerminalController(CardService&, SecurityService&, AccessPolicyService&, LogService&, DoorSimulator&, std::chrono::seconds entryTimeout);
 
     void run();
 
@@ -43,6 +45,7 @@ private:
     void onDoorOpened();
     void onDoorClosed();
     void onForcedOpened();
+    void checkEntryTimeout();
 
     void reset();
     void denyAccess(LogReason, std::optional<std::string> = std::nullopt);
@@ -53,7 +56,10 @@ private:
     LogService& _logs;
     DoorSimulator& _door;
 
-    // картка яка обробляється
+    std::chrono::seconds _entryTimeout;
+    std::chrono::steady_clock::time_point _entryDeadline;
+
+    //картка яка обробляється
     std::optional<std::string> _currentCardId;
 };
 

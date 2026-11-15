@@ -186,6 +186,11 @@ void CardService::editTimeWindow(const std::string& cardId, int windowIndex, con
     sp.release();
 }
 
+bool CardService::verifyPin(const std::string &cardId, const std::string &pin) const {
+    const auto card = getCard(cardId);
+    return card && hash_.verify(pin, card->pinHash);
+}
+
 FailedAttemptResult CardService::registerFailedAttempt(const std::string &cardId) {
     Savepoint sp(db_, "failed_attempt");
     CardEntity card = loadOrThrow(cardId);

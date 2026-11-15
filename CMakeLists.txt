@@ -27,6 +27,7 @@ add_executable(AccessTerminal
         Services/LogService.h
         Services/LogService.cpp
         "  Controllers/AdminController.cpp"
+        "  Controllers/TerminalController.cpp"
         Services/HashService.cpp
         tests_part/TestsPart.cpp
 )

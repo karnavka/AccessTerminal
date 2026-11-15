@@ -50,6 +50,8 @@ public:
 
     void editTimeWindow(const std::string& cardId, int windowIndex, const TimeWindow& newWindow);
 
+    bool verifyPin(const std::string &cardId, const std::string &pin) const;
+
     FailedAttemptResult registerFailedAttempt(const std::string &cardId);
 
     void resetFailedAttempt(const std::string &cardId);
