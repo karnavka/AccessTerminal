@@ -17,6 +17,9 @@ INSERT INTO users (id, name, role) VALUES
     (4, 'Універсальна Людина', 'User');
 
 INSERT INTO cards (card_id, user_id, pin_hash, status) VALUES
+    ('ADM-001',  1, '9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0', 'Active'),
+    ('CARD-001', 2, '9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0', 'Active'),
+    ('CARD-002', 3, '9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0', 'Active');
     ('ADM-001',  1, '$argon2id$v=19$m=32768,t=3,p=1$0U0oIvSPWTYoF1nRkqHqow$TACv4+75cxvra2fPr91SMJj9djT+2c3HSgykyrc2kyE', 'Active'),
     ('CARD-001', 2, '$argon2id$v=19$m=32768,t=3,p=1$0U0oIvSPWTYoF1nRkqHqow$TACv4+75cxvra2fPr91SMJj9djT+2c3HSgykyrc2kyE', 'Active'),
     ('CARD-002', 3, '$argon2id$v=19$m=32768,t=3,p=1$0U0oIvSPWTYoF1nRkqHqow$TACv4+75cxvra2fPr91SMJj9djT+2c3HSgykyrc2kyE', 'Active'),
