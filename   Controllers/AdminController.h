@@ -1,10 +1,12 @@
 #pragma once
 
+#include <string>
+#include <vector>
+
 #include "../Services/UserService.h"
 #include "../Services/CardService.h"
 #include "../Services/LogService.h"
 #include "../Services/HashService.h"
-// TODO додати потім сервіси для хешів і для аксес перевірки
 
 class AdminController {
 public:
@@ -32,12 +34,19 @@ private:
     void issueCard();
 
     int readMinutes(const std::string& prompt);
+    // день тижня: людина вводить 1-7, повертає 0-6 як у бд, або -1 якщо скасували
+    int readDayOfWeek(const std::string& prompt);
+    // чи можна додати вікно до інших вікон картки
+    bool isWindowOk(const TimeWindow& window, const std::vector<TimeWindow>& others);
+    // так / ні
+    bool askYesNo(const std::string& question);
 
     // 4. змінити дані картки
     void editCard();
 
     void changePin(const std::string& cardId);
     void revokeCard(const std::string& cardId);
+    void blockCard(const std::string& cardId);
     void unblockCard(const std::string& cardId);
 
     void editTimeWindows(const std::string& cardId);
@@ -51,4 +60,8 @@ private:
     CardService& _cards;
     LogService& _logs;
     HashService& _hash;
+
+    // хто зараз зайшов в адмінку
+    std::string _currentCardId;
+    int _currentUserId = 0;
 };

@@ -1,3 +1,8 @@
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include <string>
 #include <cstdio>
 #include <cassert>
@@ -29,6 +34,13 @@ int createDataOnFirstOpen(DataBaseInitializer& dbInit) {
 
 
 int main() {
+    //без цього у мене якісь виклики демонів у консолі на вінд
+#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+#endif
+
+
     std::string dbPath     = std::string(PROJECT_DIR) + "/data/db.sqlite3";
     std::string schemaPath = std::string(PROJECT_DIR) + "/data/schema.sql";
     std::string seedPath = std::string(PROJECT_DIR) + "/data/seed.sql";
@@ -64,7 +76,7 @@ int main() {
 
     //розкоментуйте на першому запуску
     //або для оновлення БД: видалити data/db.sqlite3, виконати код
-    // if (createDataOnFirstOpen(dbInit) == 1) return 1;
+    if (createDataOnFirstOpen(dbInit) == 1) return 1;
     
 
     std::printf("Database ready\n");
