@@ -13,12 +13,14 @@
 INSERT INTO users (id, name, role) VALUES
     (1, 'Admin',          'Admin'),
     (2, 'Іван Петренко',  'User'),
-    (3, 'Олена Коваль',   'User');
+    (3, 'Олена Коваль',   'User'),
+    (4, 'Універсальна Людина', 'User');
 
 INSERT INTO cards (card_id, user_id, pin_hash, status) VALUES
     ('ADM-001',  1, '$argon2id$v=19$m=32768,t=3,p=1$0U0oIvSPWTYoF1nRkqHqow$TACv4+75cxvra2fPr91SMJj9djT+2c3HSgykyrc2kyE', 'Active'),
     ('CARD-001', 2, '$argon2id$v=19$m=32768,t=3,p=1$0U0oIvSPWTYoF1nRkqHqow$TACv4+75cxvra2fPr91SMJj9djT+2c3HSgykyrc2kyE', 'Active'),
-    ('CARD-002', 3, '$argon2id$v=19$m=32768,t=3,p=1$0U0oIvSPWTYoF1nRkqHqow$TACv4+75cxvra2fPr91SMJj9djT+2c3HSgykyrc2kyE', 'Active');
+    ('CARD-002', 3, '$argon2id$v=19$m=32768,t=3,p=1$0U0oIvSPWTYoF1nRkqHqow$TACv4+75cxvra2fPr91SMJj9djT+2c3HSgykyrc2kyE', 'Active'),
+    ('testcard',  4, '$argon2id$v=19$m=32768,t=3,p=1$0U0oIvSPWTYoF1nRkqHqow$TACv4+75cxvra2fPr91SMJj9djT+2c3HSgykyrc2kyE', 'Active');
 
 -- day_of_week: 0 = понеділок ... 6 = неділя; хвилини від початку доби
 -- ADM-001: щодня, цілодобово
@@ -35,3 +37,8 @@ INSERT INTO card_time_windows (card_id, day_of_week, start_minute, end_minute) V
 -- CARD-002: пн-ср 09:00-18:00
 INSERT INTO card_time_windows (card_id, day_of_week, start_minute, end_minute) VALUES
     ('CARD-002', 0, 540, 1080), ('CARD-002', 1, 540, 1080), ('CARD-002', 2, 540, 1080);
+
+INSERT INTO card_time_windows (card_id, day_of_week, start_minute, end_minute) VALUES
+    ('testcard', 0, 0, 1440),  ('testcard', 0, 1, 1440),  ('testcard', 0, 2, 1440),
+    ('testcard', 0, 3, 1440),  ('testcard', 0, 4, 1440),  ('testcard', 0, 5, 1440),
+    ('testcard', 0, 6, 1440);
