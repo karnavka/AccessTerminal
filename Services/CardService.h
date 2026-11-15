@@ -33,8 +33,7 @@ public:
                 SecurityConfig config,
                 Clock clock = [] { return std::chrono::system_clock::now(); });
 
-    void issueCard(int userId, const std::string &cardId, const std::string &pin,
-                   const std::vector<TimeWindow> &windows);
+    std::string issueCard(int userId, const std::string &pin, const std::vector<TimeWindow> &windows);
 
     void revokeCard(const std::string &cardId);
 
@@ -66,6 +65,8 @@ public:
 
 private:
     CardEntity loadOrThrow(const std::string &cardId) const;
+
+    std::string generateCardId() const;
 
     void save(const CardEntity &card);
 

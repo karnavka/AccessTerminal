@@ -7,6 +7,9 @@
 #include <stdexcept>
 #include "Repositories/SqliteStatement.h"
 #include "Entity/SecurityConfig.h"
+#include <iomanip>
+#include <random>
+#include <sstream>
 
 //Закоментовані логи бо тре реалізувати і то шо або в аксес полісі або я хз чи його сюди
 CardService::CardService(sqlite3 *db, CardRepository &cards, const HashService& hash,
@@ -29,24 +32,33 @@ CardEntity CardService::loadOrThrow(const std::string &cardId) const {
     return *card;
 }
 
+std::string CardService::generateCardId() const {
+    static std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dist(0, 99999);
+
+    for (int attempt = 0; attempt < 10; ++attempt) {
+        std::ostringstream id;
+        id << std::setw(5) << std::setfill('0') << dist(gen);
+
+        if (!cards_.findById(id.str())) {
+            return id.str();
+        }
+    }
+    throw std::runtime_error("Не вдалося згенерувати унікальний ID картки");
+}
+
 void CardService::save(const CardEntity &card) {
     if (!cards_.update(card)) {
         throw std::runtime_error("Не вдалося оновити картку: " + card.cardId);
     }
 }
 
-void CardService::issueCard(int userId, const std::string &cardId, const std::string &pin,
-                            const std::vector<TimeWindow> &windows) {
-    if (cardId.empty()) throw std::invalid_argument("Порожній ідентифікатор картки");
+std::string CardService::issueCard(int userId, const std::string &pin,const std::vector<TimeWindow> &windows) {
     validatePin(pin);
-
     validateWindows(windows);
 
     Savepoint sp(db_, "issue_card");
-
-    if (cards_.findById(cardId)) {
-        throw std::invalid_argument("Картка з таким ідентифікатором уже існує");
-    }
 
     for (const CardEntity &c: cards_.findByUserId(userId))
         if (c.status != CardStatus::Revoked) {
@@ -54,7 +66,7 @@ void CardService::issueCard(int userId, const std::string &cardId, const std::st
         }
 
     CardEntity card;
-    card.cardId = cardId;
+    card.cardId = generateCardId();
     card.userId = userId;
     card.pinHash = hash_.hash(pin);
     card.status = CardStatus::Active;
@@ -63,6 +75,7 @@ void CardService::issueCard(int userId, const std::string &cardId, const std::st
     cards_.add(card);
 
     sp.release();
+    return card.cardId;
 }
 
 void CardService::revokeCard(const std::string &cardId) {

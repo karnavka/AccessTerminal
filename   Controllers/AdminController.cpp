@@ -512,26 +512,8 @@ void AdminController::issueCard() {
         std::cout << "Некоректний ID користувача. Введіть додатне ціле число або 0 для скасування.\n";
     }
 
-    // TODO генератор ID, не самостійне введення
-    // можливо з кард сервіс викликається метод генерації id
-    // цей блок while прибрати і викликати метод генерування
-    // зберігати id в змінній cardId
     while (true) {
-        std::cout << "Введіть ID картки (0 - скасувати): ";
-        std::getline(std::cin, cardId);
-
-        if (cardId == "0") {
-            std::cout << "Додавання картки скасовано.\n";
-            return;
-        }
-        if (!cardId.empty()) {
-            break;
-        }
-        std::cout << "ID картки не може бути порожнім. Спробуйте ще раз або введіть 0 для скасування.\n";
-    }
-
-    while (true) {
-        std::cout << "Введіть PIN (0 - скасувати): ";
+        std::cout << "Придумайте PIN для картки (0 - скасувати): ";
         std::getline(std::cin, pin);
 
         if (pin == "0") {
@@ -593,7 +575,7 @@ void AdminController::issueCard() {
                 }
                 std::cout << "Некоректний день тижня. Введіть число від 1 до 7, або 0 для скасування.\n";
             }
-            // тепер в бд буде всьо нормально від 0 до 6 приходити
+
             window.dayOfWeek -= 1;
 
             window.startMinute = readMinutes("Час початку (HH:MM)");
@@ -612,11 +594,8 @@ void AdminController::issueCard() {
             windows.push_back(window);
         }
 
-        //не кидає помилку в остаточній реалізації?
-        std::string hashedPin = _hash.hash(pin);
-
-        _cards.issueCard(userId, cardId, hashedPin, windows);
-        std::cout << "Картку успішно додано!\n";
+        std::string cardId = _cards.issueCard(userId, pin, windows);
+        std::cout << "Картку успішно додано! ID картки: " << cardId << '\n';
     } catch (const std::exception& e) {
         std::cout << "Не вдалося додати картку: " << e.what() << '\n';
     }
