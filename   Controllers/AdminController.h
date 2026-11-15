@@ -34,11 +34,8 @@ private:
     void issueCard();
 
     int readMinutes(const std::string& prompt);
-    // день тижня: людина вводить 1-7, повертає 0-6 як у бд, або -1 якщо скасували
     int readDayOfWeek(const std::string& prompt);
-    // чи можна додати вікно до інших вікон картки
     bool isWindowOk(const TimeWindow& window, const std::vector<TimeWindow>& others);
-    // так / ні
     bool askYesNo(const std::string& question);
 
     // 4. змінити дані картки
@@ -61,7 +58,6 @@ private:
     LogService& _logs;
     HashService& _hash;
 
-    // хто зараз зайшов в адмінку
     std::string _currentCardId;
     int _currentUserId = 0;
 };

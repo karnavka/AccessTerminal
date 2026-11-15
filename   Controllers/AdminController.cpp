@@ -31,20 +31,17 @@
 
 namespace {
 
-//фікс нескінченного циклу: false, якщо ввід закінчився (Ctrl+D / Ctrl+Z)
 bool readLine(std::string& line) {
     if (!std::getline(std::cin, line)) {
         std::cout << '\n';
         return false;
     }
-    // прибираємо пробіли і \r по краях (на вінді консоль може додати \r в кінці)
     const auto first = line.find_first_not_of(" \t\r");
     const auto last = line.find_last_not_of(" \t\r");
     line = (first == std::string::npos) ? "" : line.substr(first, last - first + 1);
     return true;
 }
 
-//це перевірка на те що введено саме число, без хвостів
 bool parseInt(const std::string& input, int& value) {
     std::istringstream stream(input);
     if (!(stream >> value)) {
@@ -54,7 +51,6 @@ bool parseInt(const std::string& input, int& value) {
     return stream.eof();
 }
 
-//це перевірка на те що пін з 4-8 цифр
 bool isValidPin(const std::string& pin) {
     if (pin.size() < 4 || pin.size() > 8) {
         return false;
@@ -78,7 +74,6 @@ std::tm toLocalTm(TimePoint tp) {
     return local;
 }
 
-// в бд час в UTC, а адміну показуємо місцевий
 std::string toLocalString(TimePoint tp) {
     const std::tm local = toLocalTm(tp);
     char buf[20];
@@ -86,8 +81,6 @@ std::string toLocalString(TimePoint tp) {
     return buf;
 }
 
-//це перевірка на те що така дата справді існує
-// повертає початок цього дня за місцевим часом
 bool parseLocalDate(const std::string& date, TimePoint& dayStart, TimePoint& nextDayStart) {
     if (date.size() != 10 || date[4] != '-' || date[7] != '-') {
         return false;
@@ -109,7 +102,6 @@ bool parseLocalDate(const std::string& date, TimePoint& dayStart, TimePoint& nex
     tm.tm_isdst = -1;
     const std::time_t start = std::mktime(&tm);
 
-    // mktime може не повернути фолз а зсунути дні, тому перевріємо і якщо що повертаємо фвлз
     if (start == -1 || tm.tm_year != year - 1900 || tm.tm_mon != month - 1 || tm.tm_mday != day) {
         return false;
     }
@@ -158,7 +150,7 @@ std::string formatMinutes(int totalMinutes) {
 // ---------- меню зі стрілочками ----------
 
 struct MenuItem {
-    int number;        // що повертається, якщо вибрали цей пункт (як раніше цифра)
+    int number;
     std::string text;
 };
 
@@ -193,7 +185,7 @@ struct Key {
     int digit = 0;
 };
 
-// читає одну клавішу одразу, без Enter
+
 Key readKey() {
     Key key;
 #ifdef _WIN32
@@ -214,15 +206,15 @@ Key readKey() {
     termios oldSettings{};
     tcgetattr(STDIN_FILENO, &oldSettings);
     termios raw = oldSettings;
-    raw.c_lflag &= ~(ICANON | ECHO);     // без Enter і без виводу натиснутої клавіші
+    raw.c_lflag &= ~(ICANON | ECHO);
     raw.c_cc[VMIN] = 1;
     raw.c_cc[VTIME] = 0;
     tcsetattr(STDIN_FILENO, TCSANOW, &raw);
 
     unsigned char ch = 0;
-    if (read(STDIN_FILENO, &ch, 1) != 1 || ch == 4) {   // кінець вводу / Ctrl+D
+    if (read(STDIN_FILENO, &ch, 1) != 1 || ch == 4) {
         key.kind = KeyKind::End;
-    } else if (ch == 27) {               // стрілки: ESC [ A / ESC [ B
+    } else if (ch == 27) {
         unsigned char seq[2] = {0, 0};
         if (read(STDIN_FILENO, &seq[0], 1) == 1 && seq[0] == '[' &&
             read(STDIN_FILENO, &seq[1], 1) == 1) {
@@ -241,7 +233,6 @@ Key readKey() {
     return key;
 }
 
-// скільки символів займає рядок на екрані (кирилиця в UTF-8 - по 2 байти на літеру)
 std::size_t displayWidth(const std::string& text) {
     std::size_t width = 0;
     for (unsigned char ch : text) {
@@ -256,7 +247,6 @@ std::string repeat(const std::string& part, std::size_t count) {
     return result;
 }
 
-// старий спосіб: ввести номер пункту
 int chooseByNumber(const std::vector<MenuItem>& items) {
     while (true) {
         for (const MenuItem& item : items) {
@@ -265,7 +255,6 @@ int chooseByNumber(const std::vector<MenuItem>& items) {
         std::cout << "Виберіть варіант: ";
 
         std::string input;
-        //фікс нескінченного циклу
         if (!readLine(input)) {
             return -1;
         }
@@ -302,7 +291,6 @@ int chooseMenuItem(const std::string& title, const std::vector<MenuItem>& items)
     int printedLines = 0;
 
     while (true) {
-        // стираємо попередній малюнок меню і малюємо заново на тому ж місці
         if (printedLines > 0) {
             std::cout << "\033[" << printedLines << "A\r\033[J";
         }
@@ -343,7 +331,6 @@ int chooseMenuItem(const std::string& title, const std::vector<MenuItem>& items)
                 }
                 break;
             case KeyKind::End:
-                //фікс нескінченного циклу
                 return -1;
             case KeyKind::Other:
                 break;
@@ -356,7 +343,6 @@ int chooseMenuItem(const std::string& title, const std::vector<MenuItem>& items)
 AdminController::AdminController(UserService& users, CardService& cards, LogService& logs, HashService& hash)
     : _users(users), _cards(cards), _logs(logs), _hash(hash) {}
 
-// запуск ракєти
 void AdminController::run() {
     if (!login()) {
         return;
@@ -368,7 +354,6 @@ bool AdminController::login() {
     std::string cardId;
     std::optional<CardEntity> card;
 
-    // цикл щоб можна було ввести id ще раз
     while (true) {
         std::cout << "Введіть ID карточки (0 - вийти): ";
         if (!readLine(cardId)) {
@@ -430,7 +415,6 @@ bool AdminController::login() {
                 return false;
             }
 
-            //наш хеш
             if (_hash.verify(pin, card->pinHash)) {
                 break;
             }
@@ -443,7 +427,6 @@ bool AdminController::login() {
 
         _logs.log(cardId, LogResult::Success);
 
-        // запамʼятовуємо хто зайшов, щоб адмін не відкликав сам себе
         _currentCardId = cardId;
         _currentUserId = card->userId;
 
@@ -481,7 +464,7 @@ void AdminController::showMenu() {
                 editCard();
                 break;
             case 0:
-            case -1: //фікс нескінченного циклу
+            case -1:
                 std::cout << "Вихід з режиму адміністратора...\n";
                 return;
             default:
@@ -510,7 +493,7 @@ void AdminController::showInformationMenu() {
                 showLog();
                 break;
             case 0:
-            case -1: //фікс нескінченного циклу
+            case -1:
                 return;
             default:
                 std::cout << "Такого варіанту немає. Спробуйте ще раз.\n";
@@ -613,7 +596,6 @@ void AdminController::filterLog() {
                     return;
                 }
 
-                // день рахуємо за місцевим часом, а не по UTC
                 TimePoint from;
                 TimePoint to;
                 if (parseLocalDate(date, from, to)) {
@@ -672,7 +654,6 @@ void AdminController::addUser() {
 
     while (true) {
         std::cout << "Введіть ім'я користувача (0 - скасувати): ";
-        //фікс нескінченного циклу
         if (!readLine(name)) {
             return;
         }
@@ -725,7 +706,6 @@ int AdminController::readMinutes(const std::string& prompt) {
 
     while (true) {
         std::cout << prompt << " (0 - скасувати): ";
-        //фікс нескінченного циклу
         if (!readLine(time)) {
             return -1;
         }
@@ -756,7 +736,6 @@ int AdminController::readDayOfWeek(const std::string& prompt) {
         std::string input;
 
         std::cout << prompt << " (1 - понеділок, 7 - неділя, 0 - скасувати): ";
-        //фікс нескінченного циклу
         if (!readLine(input)) {
             return -1;
         }
@@ -766,7 +745,6 @@ int AdminController::readDayOfWeek(const std::string& prompt) {
 
         int day;
         if (parseInt(input, day) && day >= 1 && day <= 7) {
-            // у бд дні з 0 до 6, а людині зручніше вводити з 1 до 7
             return day - 1;
         }
         std::cout << "Некоректний день тижня. Введіть число від 1 до 7 або 0 для скасування.\n";
@@ -774,13 +752,11 @@ int AdminController::readDayOfWeek(const std::string& prompt) {
 }
 
 bool AdminController::isWindowOk(const TimeWindow& window, const std::vector<TimeWindow>& others) {
-    //це перевірка на те що часове вікно валідне
     if (window.startMinute >= window.endMinute) {
         std::cout << "Час початку має бути раніше за час завершення.\n";
         return false;
     }
 
-    //це перевірка на те щоб вікна в один день не перетиналися
     for (const TimeWindow& other : others) {
         if (other.dayOfWeek == window.dayOfWeek &&
             window.startMinute < other.endMinute &&
@@ -798,7 +774,6 @@ bool AdminController::askYesNo(const std::string& question) {
         std::string answer;
 
         std::cout << question << " (так/ні): ";
-        //фікс нескінченного циклу
         if (!readLine(answer)) {
             return false;
         }
@@ -826,7 +801,6 @@ void AdminController::issueCard() {
         std::string input;
 
         std::cout << "Введіть ID користувача (0 - скасувати): ";
-        //фікс нескінченного циклу
         if (!readLine(input)) {
             return;
         }
@@ -841,13 +815,11 @@ void AdminController::issueCard() {
             continue;
         }
 
-        //це перевірка на те що такий користувач існує
         if (!_users.getUser(userId)) {
             std::cout << "Користувача з таким ID не знайдено. Спробуйте ще раз або введіть 0 для скасування.\n";
             continue;
         }
 
-        //це перевірка на те що в людини ще немає картки (щоб не вводити все дарма)
         if (_users.hasActiveCard(userId)) {
             std::cout << "У цього користувача вже є активна картка. Спочатку відкличте її.\n";
             continue;
@@ -855,36 +827,8 @@ void AdminController::issueCard() {
         break;
     }
 
-    // TODO генератор ID, не самостійне введення
-    // можливо з кард сервіс викликається метод генерації id
-    // цей блок while прибрати і викликати метод генерування
-    // зберігати id в змінній cardId
-    while (true) {
-        std::cout << "Введіть ID картки (0 - скасувати): ";
-        //фікс нескінченного циклу
-        if (!readLine(cardId)) {
-            return;
-        }
-
-        if (cardId == "0") {
-            std::cout << "Додавання картки скасовано.\n";
-            return;
-        }
-        if (cardId.empty()) {
-            std::cout << "ID картки не може бути порожнім. Спробуйте ще раз або введіть 0 для скасування.\n";
-            continue;
-        }
-        //це перевірка на те що такого id ще немає
-        if (_cards.getCard(cardId)) {
-            std::cout << "Картка з таким ID вже існує. Спробуйте інший або введіть 0 для скасування.\n";
-            continue;
-        }
-        break;
-    }
-
     while (true) {
         std::cout << "Введіть PIN (0 - скасувати): ";
-        //фікс нескінченного циклу
         if (!readLine(pin)) {
             return;
         }
@@ -903,7 +847,6 @@ void AdminController::issueCard() {
         std::string input;
 
         std::cout << "Введіть кількість часових проміжків (0 - скасувати): ";
-        //фікс нескінченного циклу
         if (!readLine(input)) {
             return;
         }
@@ -925,7 +868,6 @@ void AdminController::issueCard() {
 
             std::cout << "\nЧасовий проміжок " << i + 1 << '\n';
 
-            // якщо вікно погане, вводимо саме його ще раз, а не все з початку
             while (true) {
                 window.dayOfWeek = readDayOfWeek("День тижня");
                 if (window.dayOfWeek == -1) {
@@ -938,14 +880,6 @@ void AdminController::issueCard() {
                     std::cout << "Додавання картки скасовано.\n";
                     return;
                 }
-            //window.dayOfWeek -= 1;
-
-            // window.startMinute = readMinutes("Час початку (HH:MM)");
-            //
-            // if (window.startMinute == -1) {
-            //     std::cout << "Додавання картки скасовано.\n";
-            //     return;
-            // }
 
                 window.endMinute = readMinutes("Час завершення (HH:MM)");
                 if (window.endMinute == -1) {
@@ -961,10 +895,8 @@ void AdminController::issueCard() {
             windows.push_back(window);
         }
 
-        //наш хеш: пін хешує сам CardService::issueCard,
-        //тому сюди передаємо звичайний пін (якщо хешувати і тут, то хешується двічі і validatePin не пропускає)
         _cards.issueCard(userId, pin, windows);
-        std::cout << "Картку успішно додано!\n";
+        std::cout << "Картку успішно додано! ID картки: " << cardId << '\n';
     } catch (const std::exception& e) {
         std::cout << "Не вдалося додати картку: " << e.what() << '\n';
     }
@@ -975,7 +907,6 @@ void AdminController::editCard() {
 
     while (true) {
         std::cout << "Введіть ID картки (0 - скасувати): ";
-        //фікс нескінченного циклу
         if (!readLine(cardId)) {
             return;
         }
@@ -996,14 +927,12 @@ void AdminController::editCard() {
     }
 
     while (true) {
-        // статус міг змінитися після попередньої дії, тому читаємо картку щоразу
         auto card = _cards.getCard(cardId);
         if (!card) {
             std::cout << "Картку не знайдено.\n";
             return;
         }
 
-        //це перевірка на те що відкликану картку вже не редагують
         if (card->status == CardStatus::Revoked) {
             showTimeWindows(cardId);
             std::cout << "Картку " << cardId << " відкликано, змінювати її вже не можна.\n";
@@ -1024,7 +953,6 @@ void AdminController::editCard() {
 
         const int choice = chooseMenuItem(
             "\n===== Редагування картки " + cardId + " (" + toString(card->status) + ") =====", items);
-        //фікс нескінченного циклу
         if (choice == -1) {
             return;
         }
@@ -1038,7 +966,6 @@ void AdminController::editCard() {
                     revokeCard(cardId);
                     break;
                 case 3:
-                    //це перевірка на те що розблоковують тільки заблоковану
                     if (!isBlocked) {
                         std::cout << "Картка не заблокована.\n";
                         break;
@@ -1076,7 +1003,6 @@ void AdminController::editTimeWindows(const std::string& cardId) {
             {3, "Редагувати часове вікно"},
             {0, "Назад"}
         });
-        //фікс нескінченного циклу
         if (choice == -1) {
             return;
         }
@@ -1115,7 +1041,6 @@ void AdminController::showTimeWindows(const std::string& cardId) {
         return;
     }
 
-    // у бд 0 - понеділок ... 6 - неділя
     const std::vector<std::string> days = {
         "Понеділок", "Вівторок", "Середа", "Четвер", "П'ятниця", "Субота", "Неділя"
     };
@@ -1193,7 +1118,6 @@ void AdminController::removeTimeWindow(const std::string& cardId) {
         std::string input;
 
         std::cout << "Введіть номер часового вікна для видалення (0 - скасувати): ";
-        //фікс нескінченного циклу
         if (!readLine(input)) {
             return;
         }
@@ -1248,7 +1172,6 @@ void AdminController::editTimeWindow(const std::string& cardId) {
         << card->timeWindows.size() << " або 0 для скасування.\n";
     }
 
-    // вікно, яке редагуємо, саме з собою не порівнюємо
     std::vector<TimeWindow> others = card->timeWindows;
     others.erase(others.begin() + (windowNumber - 1));
 
@@ -1287,14 +1210,11 @@ void AdminController::editTimeWindow(const std::string& cardId) {
 }
 
 void AdminController::revokeCard(const std::string& cardId) {
-    //це перевірка на те щоб адмін не відкликав картку, з якою зайшов
-    //(тоді завжди лишається хоча б один адмін з робочою карткою)
     if (cardId == _currentCardId) {
         std::cout << "Неможливо відкликати картку адміна.\n";
         return;
     }
 
-    //це перевірка на те що користувач ТОЧНО впевнений
     if (!askYesNo("Відкликання не можна скасувати. Відкликати картку " + cardId + "?")) {
         std::cout << "Відкликання скасовано.\n";
         return;
@@ -1309,7 +1229,6 @@ void AdminController::revokeCard(const std::string& cardId) {
 }
 
 void AdminController::blockCard(const std::string& cardId) {
-    //це перевірка на те щоб адмін не заблокував сам себе
     if (cardId == _currentCardId) {
         std::cout << "Не можна заблокувати картку, з якою ви зараз увійшли.\n";
         return;
@@ -1352,7 +1271,6 @@ void AdminController::changePin(const std::string& cardId) {
         }
 
         try {
-            //наш хеш (хешує CardService::changePin)
             _cards.changePin(cardId, newPin);
 
             std::cout << "PIN успішно змінено!\n";
