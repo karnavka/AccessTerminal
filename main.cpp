@@ -23,6 +23,15 @@
 
 #include "tests_part/TestsPart.h"
 
+//можна не розкоментовувати/закоментовувати теперрр
+// тепер бд створюється автоматично через dbInit.initialize() в main
+// int createDataOnFirstOpen(DataBaseInitializer& dbInit) {
+//     if (!dbInit.initialize()) return 1;
+//     int ch = check(dbInit);
+//     if (ch == 1 ) return 1;
+//     return 0;
+// }
+
 
 
 
