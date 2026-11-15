@@ -3,10 +3,31 @@
 //
 
 #include "AdminController.h"
+#include <algorithm>
 #include <cctype>
 #include <ctime>
 #include <iostream>
 #include <sstream>
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <conio.h>
+#include <io.h>
+#include <cstdio>
+// у старих версіях MinGW цієї константи може не бути
+#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
+#define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+#endif
+#else
+#include <termios.h>
+#include <unistd.h>
+#endif
 
 namespace {
 
@@ -134,6 +155,202 @@ std::string formatMinutes(int totalMinutes) {
     return result;
 }
 
+// ---------- меню зі стрілочками ----------
+
+struct MenuItem {
+    int number;        // що повертається, якщо вибрали цей пункт (як раніше цифра)
+    std::string text;
+};
+
+// чи ми в справжньому терміналі (тоді працюють стрілочки)
+// у звичайному вікні Run у CLion і в тестах із перенаправленим вводом - ні
+bool isInteractive() {
+#ifdef _WIN32
+    return _isatty(_fileno(stdin)) && _isatty(_fileno(stdout));
+#else
+    return isatty(STDIN_FILENO) && isatty(STDOUT_FILENO);
+#endif
+}
+
+// на вінді треба окремо увімкнути керуючі послідовності (переміщення курсора)
+void enableAnsiOnce() {
+#ifdef _WIN32
+    static bool enabled = false;
+    if (enabled) return;
+    enabled = true;
+    HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD mode = 0;
+    if (GetConsoleMode(out, &mode)) {
+        SetConsoleMode(out, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+    }
+#endif
+}
+
+enum class KeyKind { Up, Down, Enter, Digit, End, Other };
+
+struct Key {
+    KeyKind kind = KeyKind::Other;
+    int digit = 0;
+};
+
+// читає одну клавішу одразу, без Enter
+Key readKey() {
+    Key key;
+#ifdef _WIN32
+    const int ch = _getch();
+    if (ch == 0 || ch == 224) {          // стрілки приходять двома кодами
+        const int code = _getch();
+        if (code == 72) key.kind = KeyKind::Up;
+        if (code == 80) key.kind = KeyKind::Down;
+    } else if (ch == '\r' || ch == '\n') {
+        key.kind = KeyKind::Enter;
+    } else if (ch == 26 || ch == 3) {    // Ctrl+Z / Ctrl+C
+        key.kind = KeyKind::End;
+    } else if (ch >= '0' && ch <= '9') {
+        key.kind = KeyKind::Digit;
+        key.digit = ch - '0';
+    }
+#else
+    termios oldSettings{};
+    tcgetattr(STDIN_FILENO, &oldSettings);
+    termios raw = oldSettings;
+    raw.c_lflag &= ~(ICANON | ECHO);     // без Enter і без виводу натиснутої клавіші
+    raw.c_cc[VMIN] = 1;
+    raw.c_cc[VTIME] = 0;
+    tcsetattr(STDIN_FILENO, TCSANOW, &raw);
+
+    unsigned char ch = 0;
+    if (read(STDIN_FILENO, &ch, 1) != 1 || ch == 4) {   // кінець вводу / Ctrl+D
+        key.kind = KeyKind::End;
+    } else if (ch == 27) {               // стрілки: ESC [ A / ESC [ B
+        unsigned char seq[2] = {0, 0};
+        if (read(STDIN_FILENO, &seq[0], 1) == 1 && seq[0] == '[' &&
+            read(STDIN_FILENO, &seq[1], 1) == 1) {
+            if (seq[1] == 'A') key.kind = KeyKind::Up;
+            if (seq[1] == 'B') key.kind = KeyKind::Down;
+        }
+    } else if (ch == '\n' || ch == '\r') {
+        key.kind = KeyKind::Enter;
+    } else if (ch >= '0' && ch <= '9') {
+        key.kind = KeyKind::Digit;
+        key.digit = ch - '0';
+    }
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldSettings);
+#endif
+    return key;
+}
+
+// скільки символів займає рядок на екрані (кирилиця в UTF-8 - по 2 байти на літеру)
+std::size_t displayWidth(const std::string& text) {
+    std::size_t width = 0;
+    for (unsigned char ch : text) {
+        if ((ch & 0xC0) != 0x80) width++;
+    }
+    return width;
+}
+
+std::string repeat(const std::string& part, std::size_t count) {
+    std::string result;
+    for (std::size_t i = 0; i < count; i++) result += part;
+    return result;
+}
+
+// старий спосіб: ввести номер пункту
+int chooseByNumber(const std::vector<MenuItem>& items) {
+    while (true) {
+        for (const MenuItem& item : items) {
+            std::cout << item.number << ". " << item.text << '\n';
+        }
+        std::cout << "Виберіть варіант: ";
+
+        std::string input;
+        //фікс нескінченного циклу
+        if (!readLine(input)) {
+            return -1;
+        }
+        int choice;
+        if (!parseInt(input, choice)) {
+            std::cout << "Некоректне введення. Спробуйте ще раз.\n";
+            continue;
+        }
+        for (const MenuItem& item : items) {
+            if (item.number == choice) {
+                return choice;
+            }
+        }
+        std::cout << "Такого варіанту немає. Спробуйте ще раз.\n";
+    }
+}
+
+// меню: стрілочками вверх/вниз, вибраний пункт обведений рамкою, Enter - вибрати
+// (або одразу цифра пункту). Повертає number вибраного пункту, -1 якщо ввід закінчився
+int chooseMenuItem(const std::string& title, const std::vector<MenuItem>& items) {
+    std::cout << title << '\n';
+
+    if (!isInteractive()) {
+        return chooseByNumber(items);
+    }
+    enableAnsiOnce();
+
+    std::size_t textWidth = 0;
+    for (const MenuItem& item : items) {
+        textWidth = std::max(textWidth, displayWidth(std::to_string(item.number) + ". " + item.text));
+    }
+
+    std::size_t selected = 0;
+    int printedLines = 0;
+
+    while (true) {
+        // стираємо попередній малюнок меню і малюємо заново на тому ж місці
+        if (printedLines > 0) {
+            std::cout << "\033[" << printedLines << "A\r\033[J";
+        }
+        printedLines = 0;
+
+        for (std::size_t i = 0; i < items.size(); i++) {
+            const std::string line = std::to_string(items[i].number) + ". " + items[i].text;
+            if (i == selected) {
+                const std::string padding(textWidth - displayWidth(line), ' ');
+                std::cout << "  ┌" << repeat("─", textWidth + 2) << "┐\n";
+                std::cout << "  │ " << line << padding << " │\n";
+                std::cout << "  └" << repeat("─", textWidth + 2) << "┘\n";
+                printedLines += 3;
+            } else {
+                std::cout << "    " << line << '\n';
+                printedLines += 1;
+            }
+        }
+        std::cout << "  ↑/↓ - вибір, Enter - підтвердити\n";
+        printedLines += 1;
+        std::cout.flush();
+
+        const Key key = readKey();
+        switch (key.kind) {
+            case KeyKind::Up:
+                selected = (selected == 0) ? items.size() - 1 : selected - 1;
+                break;
+            case KeyKind::Down:
+                selected = (selected + 1) % items.size();
+                break;
+            case KeyKind::Enter:
+                return items[selected].number;
+            case KeyKind::Digit:
+                for (const MenuItem& item : items) {
+                    if (item.number == key.digit) {
+                        return item.number;
+                    }
+                }
+                break;
+            case KeyKind::End:
+                //фікс нескінченного циклу
+                return -1;
+            case KeyKind::Other:
+                break;
+        }
+    }
+}
+
 } // namespace
 
 AdminController::AdminController(UserService& users, CardService& cards, LogService& logs, HashService& hash)
@@ -241,27 +458,14 @@ bool AdminController::login() {
 }
 
 void AdminController::showMenu() {
-    int choice;
-
     while (true) {
-        std::cout << "\n===== МЕНЮ адміністратора =====\n";
-        std::cout << "1. Перегляд інформації\n";
-        std::cout << "2. Додати користувача\n";
-        std::cout << "3. Додати карту для користувача\n";
-        std::cout << "4. Змінити дані картки\n";
-        std::cout << "0. Вийти\n";
-        std::cout << "Виберіть варіант: ";
-
-        std::string input;
-        //фікс нескінченного циклу
-        if (!readLine(input)) {
-            std::cout << "Вихід з режиму адміністратора...\n";
-            return;
-        }
-        if (!parseInt(input, choice)) {
-            std::cout << "Некоректне введення. Спробуйте ще раз.\n";
-            continue;
-        }
+        const int choice = chooseMenuItem("\n===== МЕНЮ адміністратора =====", {
+            {1, "Перегляд інформації"},
+            {2, "Додати користувача"},
+            {3, "Додати карту для користувача"},
+            {4, "Змінити дані картки"},
+            {0, "Вийти"}
+        });
 
         switch (choice) {
             case 1:
@@ -277,6 +481,7 @@ void AdminController::showMenu() {
                 editCard();
                 break;
             case 0:
+            case -1: //фікс нескінченного циклу
                 std::cout << "Вихід з режиму адміністратора...\n";
                 return;
             default:
@@ -286,25 +491,13 @@ void AdminController::showMenu() {
 }
 
 void AdminController::showInformationMenu() {
-    int choice;
-
     while (true) {
-        std::cout << "\n===== Перегляд інформації =====\n";
-        std::cout << "1. Список користувачів\n";
-        std::cout << "2. Список карток\n";
-        std::cout << "3. Журнал спроб доступу\n";
-        std::cout << "0. Назад\n";
-        std::cout << "Виберіть варіант: ";
-
-        std::string input;
-        //фікс нескінченного циклу
-        if (!readLine(input)) {
-            return;
-        }
-        if (!parseInt(input, choice)) {
-            std::cout << "Некоректне введення. Спробуйте ще раз.\n";
-            continue;
-        }
+        const int choice = chooseMenuItem("\n===== Перегляд інформації =====", {
+            {1, "Список користувачів"},
+            {2, "Список карток"},
+            {3, "Журнал спроб доступу"},
+            {0, "Назад"}
+        });
 
         switch (choice) {
             case 1:
@@ -317,6 +510,7 @@ void AdminController::showInformationMenu() {
                 showLog();
                 break;
             case 0:
+            case -1: //фікс нескінченного циклу
                 return;
             default:
                 std::cout << "Такого варіанту немає. Спробуйте ще раз.\n";
@@ -376,69 +570,32 @@ void AdminController::showLog() {
 }
 
 void AdminController::filterLog() {
-    int choice;
     LogFilter filter;
-    std::string input;
 
-    while (true) {
-        std::cout << "\nБажаєте відфільтрувати журнал?\n";
-        std::cout << "1. За результатом\n";
-        std::cout << "2. За датою\n";
-        std::cout << "3. За ID картки\n";
-        std::cout << "0. Ні\n";
-        std::cout << "Виберіть варіант: ";
-
-        if (!readLine(input)) {
-            return;
-        }
-
-        if (!parseInt(input, choice)) {
-            std::cout << "Некоректне введення. Спробуйте ще раз або натисніть 0 для повернення.\n";
-            continue;
-        }
-        if (choice >= 0 && choice <= 3) {
-            break;
-        }
-        std::cout << "Невідомий пункт меню. Спробуйте ще раз або натисніть 0 для повернення.\n";
-    }
+    const int choice = chooseMenuItem("\nБажаєте відфільтрувати журнал?", {
+        {1, "За результатом"},
+        {2, "За датою"},
+        {3, "За ID картки"},
+        {0, "Ні"}
+    });
 
     switch (choice) {
         case 1: {
-            int resultChoice;
+            const int resultChoice = chooseMenuItem("\nОберіть результат:", {
+                {1, "Успішний доступ"},
+                {2, "Відмовлено в доступі"},
+                {3, "Тривога"},
+                {0, "Назад"}
+            });
 
-            while (true) {
-                std::cout << "\nОберіть результат:\n";
-                std::cout << "1. Успішний доступ\n";
-                std::cout << "2. Відмовлено в доступі\n";
-                std::cout << "3. Тривога\n";
-                std::cout << "0. Назад\n";
-                std::cout << "Ваш вибір: ";
-
-                if (!readLine(input)) {
-                    return;
-                }
-
-                if (!parseInt(input, resultChoice)) {
-                    std::cout << "Некоректне введення. Спробуйте ще раз або натисніть 0 для скасування.\n";
-                    continue;
-                }
-
-                if (resultChoice == 0) {
-                    return;
-                }
-                if (resultChoice == 1) {
-                    filter.result = LogResult::Success;
-                    break;
-                }
-                if (resultChoice == 2) {
-                    filter.result = LogResult::Denied;
-                    break;
-                }
-                if (resultChoice == 3) {
-                    filter.result = LogResult::Alarm;
-                    break;
-                }
-                std::cout << "Невідомий результат. Спробуйте ще раз або натисніть 0 для скасування.\n";
+            if (resultChoice == 1) {
+                filter.result = LogResult::Success;
+            } else if (resultChoice == 2) {
+                filter.result = LogResult::Denied;
+            } else if (resultChoice == 3) {
+                filter.result = LogResult::Alarm;
+            } else {
+                return;
             }
             break;
         }
@@ -509,7 +666,6 @@ void AdminController::filterLog() {
 
 void AdminController::addUser() {
     std::string name;
-    int roleChoice;
     UserRole role;
 
     std::cout << "\n===== Додавання користувача =====\n";
@@ -540,36 +696,19 @@ void AdminController::addUser() {
         std::cout << "Ім'я не може бути порожнім. Спробуйте ще раз або натисніть 0 для скасування.\n";
     }
 
-    while (true) {
-        std::cout << "\nОберіть роль:\n";
-        std::cout << "1. Звичайний користувач\n";
-        std::cout << "2. Адміністратор\n";
-        std::cout << "0. Скасувати додавання користувача\n";
-        std::cout << "Ваш вибір: ";
+    const int roleChoice = chooseMenuItem("\nОберіть роль:", {
+        {1, "Звичайний користувач"},
+        {2, "Адміністратор"},
+        {0, "Скасувати додавання користувача"}
+    });
 
-        std::string input;
-        //фікс нескінченного циклу
-        if (!readLine(input)) {
-            return;
-        }
-        if (!parseInt(input, roleChoice)) {
-            std::cout << "Некоректне введення. Спробуйте ще раз.\n";
-            continue;
-        }
-
-        if (roleChoice == 0) {
-            std::cout << "Додавання користувача скасовано.\n";
-            return;
-        }
-        if (roleChoice == 1) {
-            role = UserRole::User;
-            break;
-        }
-        if (roleChoice == 2) {
-            role = UserRole::Admin;
-            break;
-        }
-        std::cout << "Такої ролі не існує. Спробуйте ще раз або натисніть 0 для скасування.\n";
+    if (roleChoice == 1) {
+        role = UserRole::User;
+    } else if (roleChoice == 2) {
+        role = UserRole::Admin;
+    } else {
+        std::cout << "Додавання користувача скасовано.\n";
+        return;
     }
 
     try {
@@ -848,8 +987,6 @@ void AdminController::editCard() {
         break;
     }
 
-    int choice;
-
     while (true) {
         // статус міг змінитися після попередньої дії, тому читаємо картку щоразу
         auto card = _cards.getCard(cardId);
@@ -867,28 +1004,21 @@ void AdminController::editCard() {
 
         const bool isBlocked = card->status == CardStatus::Blocked;
 
-        std::cout << "\n===== Редагування картки " << cardId << " (" << toString(card->status) << ") =====\n";
-        std::cout << "1. Змінити PIN\n";
-        std::cout << "2. Відкликати картку\n";
+        std::vector<MenuItem> items = {{1, "Змінити PIN"}, {2, "Відкликати картку"}};
         if (isBlocked) {
-            std::cout << "3. Розблокувати картку\n";
+            items.push_back({3, "Розблокувати картку"});
         }
-        std::cout << "4. Редагувати часові вікна\n";
+        items.push_back({4, "Редагувати часові вікна"});
         if (!isBlocked) {
-            std::cout << "5. Заблокувати картку\n";
+            items.push_back({5, "Заблокувати картку"});
         }
-        std::cout << "0. Назад\n";
-        std::cout << "Ваш вибір: ";
+        items.push_back({0, "Назад"});
 
-        std::string input;
+        const int choice = chooseMenuItem(
+            "\n===== Редагування картки " + cardId + " (" + toString(card->status) + ") =====", items);
         //фікс нескінченного циклу
-        if (!readLine(input)) {
+        if (choice == -1) {
             return;
-        }
-
-        if (!parseInt(input, choice)) {
-            std::cout << "Некоректне введення. Введіть номер пункту меню.\n";
-            continue;
         }
 
         try {
@@ -929,27 +1059,18 @@ void AdminController::editCard() {
 }
 
 void AdminController::editTimeWindows(const std::string& cardId) {
-    int choice;
-
     while (true) {
         showTimeWindows(cardId);
 
-        std::cout << "\n===== Редагування часових вікон =====\n";
-        std::cout << "1. Додати часове вікно\n";
-        std::cout << "2. Видалити часове вікно\n";
-        std::cout << "3. Редагувати часове вікно\n";
-        std::cout << "0. Назад\n";
-        std::cout << "Ваш вибір: ";
-
-        std::string input;
+        const int choice = chooseMenuItem("\n===== Редагування часових вікон =====", {
+            {1, "Додати часове вікно"},
+            {2, "Видалити часове вікно"},
+            {3, "Редагувати часове вікно"},
+            {0, "Назад"}
+        });
         //фікс нескінченного циклу
-        if (!readLine(input)) {
+        if (choice == -1) {
             return;
-        }
-
-        if (!parseInt(input, choice)) {
-            std::cout << "Некоректне введення. Введіть номер пункту меню.\n";
-            continue;
         }
 
         try {
@@ -1161,7 +1282,7 @@ void AdminController::revokeCard(const std::string& cardId) {
     //це перевірка на те щоб адмін не відкликав картку, з якою зайшов
     //(тоді завжди лишається хоча б один адмін з робочою карткою)
     if (cardId == _currentCardId) {
-        std::cout << "Не можна відкликати картку, з якою ви зараз увійшли.\n";
+        std::cout << "Неможливо відкликати картку адміна.\n";
         return;
     }
 
