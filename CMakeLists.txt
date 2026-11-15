@@ -35,6 +35,7 @@ add_executable(AccessTerminal
 
 target_include_directories(AccessTerminal PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(AccessTerminal PRIVATE sqlite3)
+target_link_libraries(AccessTerminal PRIVATE argon2)
 target_compile_definitions(AccessTerminal PRIVATE
     PROJECT_DIR="${CMAKE_SOURCE_DIR}")
 
@@ -55,3 +56,20 @@ elseif(APPLE)
         ${SECURITY_FRAMEWORK}
     )
 endif()
+
+
+find_package(Threads REQUIRED)
+
+add_library(argon2 STATIC
+    third_party/argon2/src/argon2.c
+    third_party/argon2/src/core.c
+    third_party/argon2/src/encoding.c
+    third_party/argon2/src/ref.c
+    third_party/argon2/src/thread.c
+    third_party/argon2/src/blake2/blake2b.c
+)
+target_include_directories(argon2
+    PUBLIC  third_party/argon2/include
+    PRIVATE third_party/argon2/src
+)
+target_link_libraries(argon2 PUBLIC Threads::Threads)

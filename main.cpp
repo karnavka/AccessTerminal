@@ -63,6 +63,7 @@ int main() {
 
     sqlite3* db = dbInit.getConnection();
 
+
     // Repositories
     UserRepository userRepo(db);
     CardRepository cardRepo(db);

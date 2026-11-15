@@ -16,9 +16,9 @@ INSERT INTO users (id, name, role) VALUES
     (3, 'Олена Коваль',   'User');
 
 INSERT INTO cards (card_id, user_id, pin_hash, status) VALUES
-    ('ADM-001',  1, '7034367338825574760', 'Active'),
-    ('CARD-001', 2, '7034367338825574760', 'Active'),
-    ('CARD-002', 3, '7034367338825574760', 'Active');
+    ('ADM-001',  1, '$argon2id$v=19$m=32768,t=3,p=1$0U0oIvSPWTYoF1nRkqHqow$TACv4+75cxvra2fPr91SMJj9djT+2c3HSgykyrc2kyE', 'Active'),
+    ('CARD-001', 2, '$argon2id$v=19$m=32768,t=3,p=1$0U0oIvSPWTYoF1nRkqHqow$TACv4+75cxvra2fPr91SMJj9djT+2c3HSgykyrc2kyE', 'Active'),
+    ('CARD-002', 3, '$argon2id$v=19$m=32768,t=3,p=1$0U0oIvSPWTYoF1nRkqHqow$TACv4+75cxvra2fPr91SMJj9djT+2c3HSgykyrc2kyE', 'Active');
 
 -- day_of_week: 0 = понеділок ... 6 = неділя; хвилини від початку доби
 -- ADM-001: щодня, цілодобово
