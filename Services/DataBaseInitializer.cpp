@@ -3,6 +3,22 @@
 #include <sstream>
 #include <cstdio>
 
+
+bool isUsersEmpty(sqlite3* db) {
+    sqlite3_stmt* st = nullptr;
+    if (sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM users;", -1, &st, nullptr) != SQLITE_OK) {
+        return false;
+    }
+    bool empty = false;
+    if (sqlite3_step(st) == SQLITE_ROW) {
+        empty = sqlite3_column_int(st, 0) == 0;
+    }
+    sqlite3_finalize(st);
+    return empty;
+}
+
+
+
 DataBaseInitializer::DataBaseInitializer(const std::string& dbPath,
                                          const std::string& schemaPath,
                                          const std::string& seedPath)
@@ -59,7 +75,16 @@ bool DataBaseInitializer::initialize() {
     if (!readFile(seedPath_, seed))     return false;
 
     if (!begin()) return false;
-    if (!exec(schema) || !exec(seed)) {
+
+    // схему можна виконувати на кожному запуску: там скрізь IF NOT EXISTS
+    if (!exec(schema)) {
+        rollback();
+        return false;
+    }
+
+    // seed тільки на першому запуску, коли users ще порожня
+    // (інакше UNIQUE constraint failed, бо id користувачів уже є)
+    if (isUsersEmpty(db_) && !exec(seed)) {
         rollback();
         return false;
     }

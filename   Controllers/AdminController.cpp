@@ -16,6 +16,10 @@ bool readLine(std::string& line) {
         std::cout << '\n';
         return false;
     }
+    // прибираємо пробіли і \r по краях (на вінді консоль може додати \r в кінці)
+    const auto first = line.find_first_not_of(" \t\r");
+    const auto last = line.find_last_not_of(" \t\r");
+    line = (first == std::string::npos) ? "" : line.substr(first, last - first + 1);
     return true;
 }
 

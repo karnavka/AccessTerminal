@@ -23,13 +23,6 @@
 
 #include "tests_part/TestsPart.h"
 
-//returns: ok - 0 ; error - 1
-int createDataOnFirstOpen(DataBaseInitializer& dbInit) {
-    if (!dbInit.initialize()) return 1;
-    int ch = check(dbInit);
-    if (ch == 1 ) return 1;
-    return 0;
-}
 
 
 
@@ -48,6 +41,11 @@ int main() {
     DataBaseInitializer dbInit(dbPath, schemaPath, seedPath);
 
     if (!dbInit.open())       return 1;
+
+    // створює таблиці, якщо їх ще немає, а seed додає тільки на першому запуску,
+    // тому нічого не треба ні коментувати, ні розкоментовувати
+    // щоб скинути бд до початкових даних: видалити data/db.sqlite3 і запустити
+    if (!dbInit.initialize()) return 1;
 
     // all inits
 
@@ -74,9 +72,6 @@ int main() {
     testAdmin(admin);
 
 
-    //розкоментуйте на першому запуску
-    //або для оновлення БД: видалити data/db.sqlite3, виконати код
-    if (createDataOnFirstOpen(dbInit) == 1) return 1;
     
 
     std::printf("Database ready\n");
