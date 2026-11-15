@@ -593,6 +593,8 @@ void AdminController::issueCard() {
                 }
                 std::cout << "Некоректний день тижня. Введіть число від 1 до 7, або 0 для скасування.\n";
             }
+            // тепер в бд буде всьо нормально від 0 до 6 приходити
+            window.dayOfWeek -= 1;
 
             window.startMinute = readMinutes("Час початку (HH:MM)");
 
@@ -746,7 +748,7 @@ void AdminController::showTimeWindows(const std::string& cardId) {
     }
 
     const std::vector<std::string> days = {
-        "Понеділок", "Вівторок", "Середа", "Четвер","П'ятниця", "Субота", "Неділя"
+        "Понеділок", "Вівторок", "Середа", "Четвер", "П'ятниця", "Субота", "Неділя"
     };
 
     std::cout << "\n===== Часові вікна картки " << cardId << " =====\n";
@@ -756,8 +758,8 @@ void AdminController::showTimeWindows(const std::string& cardId) {
 
         std::cout << i + 1 << ". ";
 
-        if (window.dayOfWeek >= 1 && window.dayOfWeek <= 7) {
-            std::cout << days[window.dayOfWeek - 1];
+        if (window.dayOfWeek >= 0 && window.dayOfWeek <= 6) {
+            std::cout << days[window.dayOfWeek];
         } else {
             std::cout << "Невідомий день";
         }
@@ -803,6 +805,8 @@ void AdminController::addTimeWindow(const std::string& cardId) {
         }
         std::cout << "Некоректний день тижня. Введіть число від 1 до 7 або 0 для скасування.\n";
     }
+
+    window.dayOfWeek -= 1;
 
     window.startMinute = readMinutes("Введіть час початку (HH:MM)");
     if (window.startMinute == -1) {
@@ -924,6 +928,8 @@ void AdminController::editTimeWindow(const std::string& cardId) {
         }
         std::cout << "Некоректний день тижня. Введіть число від 1 до 7 або 0 для скасування.\n";
     }
+
+    newWindow.dayOfWeek -= 1;
 
     newWindow.startMinute = readMinutes("Введіть новий час початку (HH:MM)");
     if (newWindow.startMinute == -1) {
