@@ -81,4 +81,14 @@ An admin cannot block or revoke the card they are logged in with.
 | Admin | ADM-001  | 0000     |
 | User  | testcard | 0000     |
 
------
+## run tests
+
+build:
+```bash
+cmake -S . -B build
+cmake --build build --target TerminalControllerTests
+```
+run
+```bash
+./build/TerminalControllerTests
+```
