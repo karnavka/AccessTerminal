@@ -28,4 +28,4 @@ private:
     CardService& cardService_;
 };
 
-#endif //ACCESSTERMINAL_ACCESSPOLICYSERVICE_H
+#endif

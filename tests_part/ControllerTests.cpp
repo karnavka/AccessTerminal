@@ -5,7 +5,6 @@
 //
 // Usage: check README.md
 
-
 #include <chrono>
 #include <ctime>
 #include <fstream>

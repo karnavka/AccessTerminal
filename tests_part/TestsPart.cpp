@@ -4,23 +4,17 @@
 
 #include "Services/HashService.h"
 
-#include <sstream>
-#include <iostream>
-
 void testHash(){
     HashService service;
 
     auto hash1 = service.hash("123456");
     auto hash2 = service.hash("123456");
 
-    // assert(hash1 != hash2);
-
     assert(service.verify("123456", hash1));
     assert(!service.verify("123457", hash1));
     assert(!service.verify("123456", hash2) == false);
 }
 
-//згенерований чек щоб подивитися що всьо працює :P
 int check(const DataBaseInitializer& db){
     const char* sql =
         "SELECT u.name, u.role, c.card_id, COUNT(w.id) "
@@ -43,30 +37,4 @@ int check(const DataBaseInitializer& db){
     }
     sqlite3_finalize(st);
     return 0;
-}
-
-void testAdmin(AdminController& ac){
-
-    std::string input;
-    std::cout << "хочете тестувати адміна? [y/n]" << std::endl;
-
-    if (!std::getline(std::cin, input) || (input == "n")) {
-        return;
-    }
-    if (input == "y"){
-        ac.run();
-    }
-}
-
-void testTerminal(TerminalController& tc){
-
-    std::string input;
-    std::cout << "хочете тестувати термінал? [y/n]" << std::endl;
-
-    if (!std::getline(std::cin, input) || (input == "n")) {
-        return;
-    }
-    if (input == "y"){
-        tc.run();
-    }
 }

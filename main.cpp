@@ -26,16 +26,6 @@
 
 #include "tests_part/TestsPart.h"
 
-//можна не розкоментовувати/закоментовувати теперрр
-// тепер бд створюється автоматично через dbInit.initialize() в main
-// int createDataOnFirstOpen(DataBaseInitializer& dbInit) {
-//     if (!dbInit.initialize()) return 1;
-//     int ch = check(dbInit);
-//     if (ch == 1 ) return 1;
-//     return 0;
-// }
-
-
 // імітація сирени
 void sirenSink(AlarmReason reason) {
     std::cout << "\n*** СИРЕНА: "
@@ -104,13 +94,6 @@ int main() {
     TerminalController terminal(cards, security, access, logs, door, securityConfig.doorOpenTimeout);
 
     runMenu(terminal, admin);
-
-    //tests additional
-    // testAdmin(admin);
-    // testTerminal(terminal);
-    // testHash();
-
-
 
     std::printf("Database ready\n");
 
