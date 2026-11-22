@@ -73,3 +73,12 @@ An admin cannot block or revoke the card they are logged in with.
 ## Security notes
 
 - PINs are stored as Argon2id hashes with a random salt, never in plain text.
+
+## Test data
+
+|       | login    | password |
+| ----- | -------- | -------- |
+| Admin | ADM-001  | 0000     |
+| User  | testcard | 0000     |
+
+-----
