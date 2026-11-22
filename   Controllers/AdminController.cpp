@@ -422,7 +422,6 @@ bool AdminController::login() {
                 std::cout << "Забагато невдалих спроб. Картку заблоковано.\n";
                 return false;
             }
-            _logs.log(cardId, LogResult::Denied, LogReason::WrongPin);
             std::cout << "Неправильний PIN. Спробуйте ще раз.\n";
         }
         _currentCardId = cardId;
