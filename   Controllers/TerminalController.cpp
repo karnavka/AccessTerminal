@@ -1,114 +1,152 @@
+#include "TerminalController.h"
+#include "ConsoleInput.h"
+
 #include <iostream>
+#include <utility>
 
-#include "  Controllers/TerminalController.h"
-#include "  Controllers/ConsoleInput.h"
+namespace {
 
-TerminalController::TerminalController(
-    CardService& cards,
-    SecurityService& security,
-    AccessPolicyService& access,
-    LogService& logs,
-    DoorSimulator& door,
-    std::chrono::seconds entryTimeout
-): _cards(cards), _security(security), _access(access), _logs(logs), _door(door),
-   _entryTimeout(entryTimeout) {}
+    constexpr std::size_t kMaxInputLength = 32;
+
+    std::string trim(const std::string& text) {
+        const auto first = text.find_first_not_of(" \t\r\n");
+        if (first == std::string::npos) {
+            return "";
+        }
+        const auto last = text.find_last_not_of(" \t\r\n");
+        return text.substr(first, last - first + 1);
+    }
+
+}
+
+TerminalController::TerminalController(CardService& cards,
+                                       SecurityService& security,
+                                       AccessPolicyService& access,
+                                       LogService& logs,
+                                       DoorSimulator& door,
+                                       std::chrono::seconds entryTimeout,
+                                       Clock clock)
+    : _cards(cards), _security(security), _access(access), _logs(logs), _door(door),
+      _entryTimeout(entryTimeout), _clock(std::move(clock)) {}
+
+// =====================================================================
+// Цикл і ввід
+// =====================================================================
 
 void TerminalController::run() {
     console::RawModeGuard rawMode;
 
-    std::cout << "\n===== ACCESS TERMINAL =====\n";
+    std::cout << "\n===== ТЕРМІНАЛ КОНТРОЛЮ ДОСТУПУ =====\n";
 
     while (true) {
-        switch (_state) {
-
-            case TerminalState::Idle: {
-                const Input in = readInput("Tap your card (0 - exit, Tab - door sensor): ", false, true);
-                if (in.kind == InputKind::Eof) {
-                    return;
-                }
-                if (in.kind == InputKind::Interrupted) {
-                    break;
-                }
-                if (in.text == "0") {
-                    return;
-                }
-                if (handleDoorCommand(in.text)) {
-                    break;
-                }
-
-                onCardTapped(in.text);
-                break;
-            }
-
-            case TerminalState::WaitingForPin: {
-                const Input in = readInput("Enter PIN (0 - cancel, Tab - door sensor): ", true, true);
-                if (in.kind == InputKind::Eof) {
-                    return;
-                }
-                if (in.kind == InputKind::Interrupted) {
-                    break;
-                }
-                if (in.text == "0") {
-                    reset();
-                    break;
-                }
-                if (handleDoorCommand(in.text)) {
-                    break;
-                }
-
-                onPinEntered(in.text);
-                break;
-            }
-
-            case TerminalState::WaitingForEntry: {
-                const Input in = readInput("Двері розблоковано (Tab - відчинити/зачинити): ", false, true);
-                if (in.kind == InputKind::Eof) {
-                    return;
-                }
-                if (in.kind == InputKind::Interrupted) {
-                    break;
-                }
-
-                // сюди текст приходить лише в режимі без терміналу
-                checkEntryTimeout();
-                if (!handleDoorCommand(in.text)) {
-                    std::cout << "Невідома команда.\n";
-                }
-                break;
-            }
-
-            case TerminalState::Finished: {
-                std::cout << "\nSession finished.\n";
-                reset();
-                break;
-            }
-            // під час цих станів термінал не має бути доступним
-            case TerminalState::CheckingCard:
-            case TerminalState::CheckingPin:
-            case TerminalState::InvalidPin:
-            default: {
-                std::cout << "невалідний стан\n";
-                reset();
-                break;
-            }
+        const Input in = readInput();
+        if (in.kind == InputKind::Eof) {
+            break;
+        }
+        if (in.kind == InputKind::Interrupted) {
+            continue;
+        }
+        if (!handleLine(in.text)) {
+            break;
         }
     }
+
+    endSession();
 }
 
-TerminalController::Input TerminalController::readInput(const std::string& prompt, bool mask, bool acceptText) {
-    std::cout << prompt << std::flush;
+bool TerminalController::handleLine(const std::string& text) {
+    // У режимі без терміналу таймаут можна перевірити лише тут, після кожного вводу.
+    // Це ж правильний порядок: спізнілий "!open" після таймауту - це вже злам.
+    checkEntryTimeout();
 
-    // не справжній термінал (Run у CLion, перенаправлений ввід): блокуючий getline,
-    // двері - командами !open / !close, таймаут перевіряється лише після вводу
-    if (!console::isInteractive()) {
-        std::string line;
-        if (!std::getline(std::cin, line)) {
-            return {InputKind::Eof, ""};
-        }
-        return {InputKind::Line, line};
+    if (text.empty()) {
+        return true;
+    }
+    if (handleDoorCommand(text)) {
+        return true;
     }
 
-    const TerminalState startState = _state;
+    switch (_state) {
+        case State::Idle:
+            if (text == "0") {
+                return false;
+            }
+            onCardTapped(text);
+            break;
+
+        case State::WaitingForPin:
+            if (text == "0") {
+                onCancel();
+            } else {
+                onPinEntered(text);
+            }
+            break;
+
+        case State::WaitingForEntry:
+            std::cout << "Невідома команда.\n";
+            break;
+    }
+    return true;
+}
+
+bool TerminalController::handleDoorCommand(const std::string& text) {
+    if (text == "!open") {
+        onDoorOpened();
+        return true;
+    }
+    if (text == "!close") {
+        onDoorClosed();
+        return true;
+    }
+    return false;
+}
+
+std::string TerminalController::promptFor(bool tty) const {
+    const std::string doors = tty ? "Tab - двері" : "!open / !close - двері";
+
+    switch (_state) {
+        case State::Idle:
+            return "Прикладіть картку (0 - вихід, " + doors + "): ";
+        case State::WaitingForPin:
+            return "Введіть PIN (0 - скасувати, " + doors + "): ";
+        case State::WaitingForEntry:
+            return "Двері розблоковано (" + doors + "): ";
+    }
+    return "";
+}
+
+TerminalController::InputMode TerminalController::inputMode() const {
+    switch (_state) {
+        case State::Idle:            return InputMode::Plain;
+        case State::WaitingForPin:   return InputMode::Masked;
+        case State::WaitingForEntry: return InputMode::KeysOnly;
+    }
+    return InputMode::Plain;
+}
+
+TerminalController::Input TerminalController::readInput() {
+    const bool tty = console::isInteractive();
+    const std::string prompt = promptFor(tty);
+
+    std::cout << prompt << std::flush;
+
+    return tty ? readKeys(prompt, inputMode()) : readLineBlocking();
+}
+
+// Не справжній термінал (Run у CLion, перенаправлений ввід, тести):
+// блокуючий getline, двері - командами !open / !close.
+TerminalController::Input TerminalController::readLineBlocking() {
+    std::string line;
+    if (!std::getline(std::cin, line)) {
+        return {InputKind::Eof, ""};
+    }
+    return {InputKind::Line, trim(line)};
+}
+
+// Справжній термінал: читаємо клавіші по одній, щоб між натисканнями
+// перевіряти таймаут і обробляти Tab (датчик дверей).
+TerminalController::Input TerminalController::readKeys(const std::string& prompt, InputMode mode) {
+    const State startState = _state;
     std::string buffer;
 
     while (true) {
@@ -116,16 +154,18 @@ TerminalController::Input TerminalController::readInput(const std::string& promp
 
         switch (key.kind) {
             case console::KeyKind::None:
-                checkEntryTimeout();
-                if (_state != startState) {
+                if (entryExpired()) {
+                    std::cout << '\n';   // щоб повідомлення не склеїлось із промптом
+                    checkEntryTimeout();
                     return {InputKind::Interrupted, ""};
                 }
                 break;
 
             case console::KeyKind::Char:
-                if (acceptText && buffer.size() < 64) {
+            // std::cerr << "[key=" << static_cast<int>(key.ch) << "]"; 
+                if (mode != InputMode::KeysOnly && buffer.size() < kMaxInputLength) {
                     buffer.push_back(key.ch);
-                    std::cout << (mask ? '*' : key.ch) << std::flush;
+                    std::cout << (mode == InputMode::Masked ? '*' : key.ch) << std::flush;
                 }
                 break;
 
@@ -137,7 +177,7 @@ TerminalController::Input TerminalController::readInput(const std::string& promp
                 break;
 
             case console::KeyKind::Enter:
-                if (!acceptText) {
+                if (mode == InputMode::KeysOnly) {
                     break;
                 }
                 std::cout << '\n';
@@ -147,10 +187,12 @@ TerminalController::Input TerminalController::readInput(const std::string& promp
                 std::cout << '\n';
                 toggleDoor();
                 if (_state != startState) {
-                    return {InputKind::Interrupted, ""};
+                    return {InputKind::Interrupted, ""};   // набраний текст відкидаємо
                 }
-                // перемальовуємо рядок вводу разом з тим, що вже набрано
-                std::cout << prompt << (mask ? std::string(buffer.size(), '*') : buffer) << std::flush;
+                // стан той самий - перемальовуємо рядок разом із тим, що вже набрано
+                std::cout << prompt
+                          << (mode == InputMode::Masked ? std::string(buffer.size(), '*') : buffer)
+                          << std::flush;
                 break;
 
             case console::KeyKind::Eof:
@@ -168,19 +210,17 @@ void TerminalController::toggleDoor() {
     }
 }
 
+// =====================================================================
+// Картка і PIN
+// =====================================================================
+
 void TerminalController::onCardTapped(const std::string& cardId) {
-    if (_state != TerminalState::Idle) {
+    if (_state != State::Idle || cardId.empty()) {
         return;
     }
-    setState(TerminalState::CheckingCard);
 
     try {
-        if (cardId.empty()) {
-            denyAccess(LogReason::UnknownCard);
-            return;
-        }
-
-        AccessDecision decision = _access.check(cardId, std::chrono::system_clock::now());
+        const AccessDecision decision = _access.check(cardId, std::chrono::system_clock::now());
 
         if (!decision.allowed) {
             // CHECK в access_log вимагає причину для Denied
@@ -189,78 +229,96 @@ void TerminalController::onCardTapped(const std::string& cardId) {
         }
 
         _currentCardId = cardId;
+        _state = State::WaitingForPin;
         std::cout << "Картку прийнято. Введіть PIN.\n";
-        setState(TerminalState::WaitingForPin);
 
     } catch (const std::exception& e) {
-        std::cerr << "Card validation error: " << e.what() << '\n';
-        _logs.log(cardId, LogResult::Denied, LogReason::DbUnavailable);
-        setState(TerminalState::Finished);
+        abortOnError(cardId, e);
     }
 }
 
 void TerminalController::onPinEntered(const std::string& pin) {
-    if (_state != TerminalState::WaitingForPin || !_currentCardId) {
+    if (_state != State::WaitingForPin || !_currentCardId || pin.empty()) {
         return;
     }
-    setState(TerminalState::CheckingPin);
 
     const std::string cardId = *_currentCardId;
 
     try {
+        // З моменту прикладання картки її стан міг змінитися (відкликали, заблокували,
+        // закінчилось часове вікно). Перед видачею доступу перевіряємо політику ще раз.
+        const AccessDecision decision = _access.check(cardId, std::chrono::system_clock::now());
+        if (!decision.allowed) {
+            denyAccess(decision.reason.value_or(LogReason::UnknownCard), cardId);
+            return;
+        }
+
         if (_cards.verifyPin(cardId, pin)) {
-            _security.onSuccessfulPin(cardId); // скидання спроб + лог Success
+            _security.onSuccessfulPin(cardId);   // скидання спроб + лог Success
             grantAccess();
         } else {
             handleFailedAttempt(cardId);
         }
+
     } catch (const std::exception& e) {
-        std::cerr << "PIN validation error: " << e.what() << '\n';
-        _logs.log(cardId, LogResult::Denied, LogReason::DbUnavailable);
-        setState(TerminalState::Finished);
+        abortOnError(cardId, e);
     }
 }
 
-void TerminalController::handleFailedAttempt(const std::string& cardId) {
-    setState(TerminalState::InvalidPin);
+void TerminalController::onCancel() {
+    if (_state != State::WaitingForPin) {
+        return;
+    }
+    std::cout << "Скасовано.\n";
+    endSession();
+}
 
+void TerminalController::handleFailedAttempt(const std::string& cardId) {
     const WrongPinOut out = _security.wrongPinOut(cardId);
 
     if (out.cardBlok) {
         std::cout << "Забагато спроб. Картку заблоковано.\n";
-        setState(TerminalState::Finished);
-        return;
-    }
-    
-    if (out.attempts <= 0) {
+        endSession();
+    } else if (out.attempts <= 0) {
         std::cout << "Картка більше недоступна.\n";
-        setState(TerminalState::Finished);
-        return;
+        endSession();
+    } else {
+        std::cout << "Невірний PIN. Залишилось спроб: " << out.attempts << '\n';
     }
-
-    std::cout << "Невірний PIN. Залишилось спроб: " << out.attempts << '\n';
-    setState(TerminalState::WaitingForPin);
 }
 
 void TerminalController::grantAccess() {
     _door.unlock();
-    _entryDeadline = std::chrono::steady_clock::now() + _entryTimeout;
+    _entryDeadline = _clock() + _entryTimeout;
+    _state = State::WaitingForEntry;
     std::cout << "Доступ дозволено. Двері розблоковано ("
               << _entryTimeout.count() << " с на вхід).\n";
-    setState(TerminalState::WaitingForEntry);
 }
 
-bool TerminalController::handleDoorCommand(const std::string& input) {
-    if (input == "!open") {
-        onDoorOpened();
-        return true;
-    }
-    if (input == "!close") {
-        onDoorClosed();
-        return true;
-    }
-    return false;
+void TerminalController::denyAccess(LogReason reason, const std::string& cardId) {
+    _logs.log(cardId, LogResult::Denied, reason);
+    // Справжню причину бачить лише адміністратор у журналі. Людині біля дверей
+    // не розкриваємо, чи існує така картка, чи вона заблокована / відкликана.
+    std::cout << "У доступі відмовлено.\n";
+    endSession();
 }
+
+// Помилка БД: відмовляємо (двері лишаються замкненими), пробуємо записати в журнал.
+// Якщо журнал теж недоступний - не падаємо.
+void TerminalController::abortOnError(const std::string& cardId, const std::exception& e) {
+    std::cerr << "Помилка бази даних: " << e.what() << '\n';
+    try {
+        _logs.log(cardId, LogResult::Denied, LogReason::DbUnavailable);
+    } catch (const std::exception&) {
+        // журнал недоступний - більше нічого зробити не можемо
+    }
+    std::cout << "Сервіс тимчасово недоступний. У доступі відмовлено.\n";
+    endSession();
+}
+
+// =====================================================================
+// Двері
+// =====================================================================
 
 void TerminalController::onDoorOpened() {
     if (_door.isOpen()) {
@@ -287,39 +345,37 @@ void TerminalController::onDoorClosed() {
     _door.simulateDoorClosed();
     std::cout << "Двері зачинено.\n";
 
-    if (_state == TerminalState::WaitingForEntry) {
-        _door.lock();
-        setState(TerminalState::Finished);
+    if (_state == State::WaitingForEntry) {
+        endSession();   // людина зайшла: замикаємо
     }
 }
 
 void TerminalController::onForcedOpened() {
     std::cout << "!!! ВЗЛОМ: двері відчинено без автентифікації !!!\n";
-    _security.triggerAlarm(AlarmReason::ForcedOpen);
-    setState(TerminalState::Finished);
-}
-
-void TerminalController::checkEntryTimeout() {
-    if (_state == TerminalState::WaitingForEntry && !_door.isOpen() &&
-        std::chrono::steady_clock::now() >= _entryDeadline) {
-        std::cout << "Час на вхід вичерпано. Двері зачинено.\n";
-        _door.lock();
-        setState(TerminalState::Finished);
+    try {
+        _security.triggerAlarm(AlarmReason::ForcedOpen);
+    } catch (const std::exception& e) {
+        std::cerr << "Не вдалося записати тривогу в журнал: " << e.what() << '\n';
     }
+    endSession();
 }
 
-void TerminalController::denyAccess(LogReason reason, std::optional<std::string> cardId) {
-    _logs.log(cardId, LogResult::Denied, reason);
-    std::cout << "У доступі відмовлено: " << toString(reason) << '\n';
-    setState(TerminalState::Finished);
+bool TerminalController::entryExpired() const {
+    return _state == State::WaitingForEntry && !_door.isOpen() && _clock() >= _entryDeadline;
 }
 
-void TerminalController::reset() {
+bool TerminalController::checkEntryTimeout() {
+    if (!entryExpired()) {
+        return false;
+    }
+    std::cout << "Час на вхід вичерпано. Двері зачинено.\n";
+    endSession();
+    return true;
+}
+
+// Єдине місце, де завершується сесія: замикаємо замок і скидаємо стан.
+void TerminalController::endSession() {
     _currentCardId.reset();
     _door.lock();
-    setState(TerminalState::Idle);
-}
-
-void TerminalController::setState(TerminalState state) {
-    _state = state;
+    _state = State::Idle;
 }

@@ -1,9 +1,8 @@
 #pragma once
 
-#ifndef ACCESSTERMINAL_TERMINALCONTROLLER_H
-#define ACCESSTERMINAL_TERMINALCONTROLLER_H
-
 #include <chrono>
+#include <exception>
+#include <functional>
 #include <optional>
 #include <string>
 #include "../Services/UserService.h"
@@ -14,40 +13,73 @@
 
 #include "../Entity/DoorSimulator.h"
 
-class TerminalController{
+// Емулює пристрій на дверях: зчитувач, клавіатуру, замок, датчик дверей, сирену.
+//
+// Клас складається з двох шарів:
+//   1. події (onCardTapped, onPinEntered, onDoorOpened ...) - уся логіка доступу,
+//      не залежить від того, звідки прийшов ввід;
+//   2. run() - читає клавіатуру / рядки з stdin і перетворює їх на події.
+// Завдяки цьому логіку можна тестувати, викликаючи події напряму.
+class TerminalController {
 public:
-    TerminalController(CardService&, SecurityService&, AccessPolicyService&, LogService&, DoorSimulator&, std::chrono::seconds entryTimeout);
+    // Годинник для таймауту входу (steady - не залежить від зміни системного часу).
+    // Підміняється в тестах, так само як Clock у CardService.
+    using Clock = std::function<std::chrono::steady_clock::time_point()>;
+
+    enum class State {
+        Idle,
+        WaitingForPin,
+        WaitingForEntry
+    };
+
+    TerminalController(CardService& cards,
+                       SecurityService& security,
+                       AccessPolicyService& access,
+                       LogService& logs,
+                       DoorSimulator& door,
+                       std::chrono::seconds entryTimeout,
+                       Clock clock = [] { return std::chrono::steady_clock::now(); });
 
     void run();
 
-private:
-    enum class TerminalState {
-        Idle,
-        CheckingCard,   // S1
-        WaitingForPin,  // S2
-        CheckingPin,    // S3
-        InvalidPin,     // S4
-        WaitingForEntry,// S5
-        Finished
-    };
-    TerminalState _state = TerminalState::Idle;
-    void setState(TerminalState state);
+    // ---- події ----
+    void onCardTapped(const std::string& cardId);
+    void onPinEntered(const std::string& pin);
+    void onCancel();
+    void onDoorOpened();
+    void onDoorClosed(); 
+    bool checkEntryTimeout();
+    State state() const { return _state; }
 
-    // card / pin flow
-    void onCardTapped(const std::string&);
-    void onPinEntered(const std::string&);
+private:
+    enum class InputKind { Line, Interrupted, Eof };
+    struct Input {
+        InputKind kind;
+        std::string text;
+    };
+    // Plain - ехо символів, Masked - зірочки (PIN), KeysOnly - текст не приймаємо, лише Tab
+    enum class InputMode { Plain, Masked, KeysOnly };
+
+    // ---- ввід ----
+    Input readInput();
+    Input readKeys(const std::string& prompt, InputMode mode);
+    Input readLineBlocking(); //for tests
+    std::string promptFor(bool tty) const;
+    InputMode inputMode() const;
+
+    // повертає false, якщо треба вийти з run()
+    bool handleLine(const std::string& text);
+    bool handleDoorCommand(const std::string& text);
+    void toggleDoor();
+
+    // ---- логіка ----
     void handleFailedAttempt(const std::string& cardId);
     void grantAccess();
-
-    // door events
-    bool handleDoorCommand(const std::string& input); // true if input was a door command
-    void onDoorOpened();
-    void onDoorClosed();
     void onForcedOpened();
-    void checkEntryTimeout();
-
-    void reset();
-    void denyAccess(LogReason, std::optional<std::string> = std::nullopt);
+    bool entryExpired() const;
+    void denyAccess(LogReason reason, const std::string& cardId);
+    void abortOnError(const std::string& cardId, const std::exception& e);
+    void endSession();
 
     CardService& _cards;
     SecurityService& _security;
@@ -56,19 +88,9 @@ private:
     DoorSimulator& _door;
 
     std::chrono::seconds _entryTimeout;
+    Clock _clock;
     std::chrono::steady_clock::time_point _entryDeadline;
 
-    //картка яка обробляється
-    std::optional<std::string> _currentCardId;
-
-    enum class InputKind { Line, Interrupted, Eof };
-    struct Input {
-        InputKind kind;
-        std::string text;
-    };
-    // Interrupted - стан змінився під час очікування (дверна подія / таймаут)
-    Input readInput(const std::string& prompt, bool mask, bool acceptText);
-    void toggleDoor();
+    State _state = State::Idle;
+    std::optional<std::string> _currentCardId;   // картка, для якої вводять PIN
 };
-
-#endif //ACCESSTERMINAL_TERMINALCONTROLLER_H
