@@ -10,6 +10,8 @@ void testHash(){
     auto hash1 = service.hash("123456");
     auto hash2 = service.hash("123456");
 
+    assert(hash1 != hash2);
+
     assert(service.verify("123456", hash1));
     assert(!service.verify("123457", hash1));
     assert(!service.verify("123456", hash2) == false);

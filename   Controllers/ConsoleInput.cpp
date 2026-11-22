@@ -47,7 +47,7 @@ RawModeGuard::RawModeGuard() {
         return;
     }
     termios raw = g_saved;
-    raw.c_lflag &= ~(ICANON | ECHO | ISIG);   // ISIG: Ctrl+C прийде як байт 3, а не вб'є програму з "сирим" терміналом
+    raw.c_lflag &= ~(ICANON | ECHO | ISIG);
     raw.c_cc[VMIN] = 1;
     raw.c_cc[VTIME] = 0;
     tcsetattr(STDIN_FILENO, TCSANOW, &raw);
@@ -95,10 +95,10 @@ KeyPress pollKey(int timeoutMs) {
     }
 
     unsigned char ch = 0;
-    if (read(STDIN_FILENO, &ch, 1) != 1 || ch == 3 || ch == 4) {   // EOF / Ctrl+C / Ctrl+D
+    if (read(STDIN_FILENO, &ch, 1) != 1 || ch == 3 || ch == 4) {
         return {KeyKind::Eof, 0};
     }
-    if (ch == 27) {                          // Esc-послідовність (стрілки): з'їдаємо і ігноруємо
+    if (ch == 27) {
         unsigned char skip = 0;
         while (waitReadable(0) && read(STDIN_FILENO, &skip, 1) == 1) {}
         return {};

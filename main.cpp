@@ -93,6 +93,8 @@ int main() {
     AdminController admin(users, cards, logs, hash, security);
     TerminalController terminal(cards, security, access, logs, door, securityConfig.doorOpenTimeout);
 
+    testHash();
+
     runMenu(terminal, admin);
 
     std::printf("Database ready\n");

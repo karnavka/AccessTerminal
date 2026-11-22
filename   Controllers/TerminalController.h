@@ -13,23 +13,15 @@
 
 #include "../Entity/DoorSimulator.h"
 
-// Емулює пристрій на дверях: зчитувач, клавіатуру, замок, датчик дверей, сирену.
-//
-// Клас складається з двох шарів:
-//   1. події (onCardTapped, onPinEntered, onDoorOpened ...) - уся логіка доступу,
-//      не залежить від того, звідки прийшов ввід;
-//   2. run() - читає клавіатуру / рядки з stdin і перетворює їх на події.
-// Завдяки цьому логіку можна тестувати, викликаючи події напряму.
+
 class TerminalController {
 public:
-    // Годинник для таймауту входу (steady - не залежить від зміни системного часу).
-    // Підміняється в тестах, так само як Clock у CardService.
     using Clock = std::function<std::chrono::steady_clock::time_point()>;
 
     enum class State {
-        Idle,
-        WaitingForPin,
-        WaitingForEntry
+        Idle,               //S0
+        WaitingForPin,      //S1
+        WaitingForEntry     //S5
     };
 
     TerminalController(CardService& cards,
@@ -59,7 +51,7 @@ private:
         InputKind kind;
         std::string text;
     };
-    // Plain - ехо символів, Masked - зірочки (PIN), KeysOnly - текст не приймаємо, лише Tab
+
     enum class InputMode { Plain, Masked, KeysOnly };
 
     // ---- ввід ----
@@ -69,8 +61,8 @@ private:
     std::string promptFor(bool tty) const;
     InputMode inputMode() const;
 
-    // повертає false, якщо треба вийти з run()
     bool handleLine(const std::string& text);
+
     bool handleDoorCommand(const std::string& text);
     void toggleDoor();
 
@@ -82,7 +74,7 @@ private:
     void denyAccess(LogReason reason, const std::string& cardId);
     void abortOnError(const std::string& cardId, const std::exception& e);
     void endSession();
-    void shutdown();   // endSession + двері зачинені + замок заблоковано
+    void shutdown();
 
     CardService& _cards;
     SecurityService& _security;
@@ -95,5 +87,5 @@ private:
     std::chrono::steady_clock::time_point _entryDeadline;
 
     State _state = State::Idle;
-    std::optional<std::string> _currentCardId;   // картка, для якої вводять PIN
+    std::optional<std::string> _currentCardId;
 };

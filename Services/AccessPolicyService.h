@@ -23,7 +23,6 @@ public:
 
     AccessDecision check(const std::string& cardId, TimePoint now);
 
-
 private:
     CardService& cardService_;
 };
