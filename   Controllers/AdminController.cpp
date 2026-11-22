@@ -721,12 +721,13 @@ int AdminController::readMinutes(const std::string& prompt) {
 
         std::istringstream input(time);
 
-        if (input >> hours >> separator >> minutes && separator == ':' && hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+        if (input >> hours >> separator >> minutes && separator == ':' && hours >= 0 && hours <= 24 &&
+            minutes >= 0 && minutes <= 59 && (hours != 24 || minutes == 0)) {
             input >> std::ws;
             if (input.eof()) {
                 return hours * 60 + minutes;
             }
-        }
+    }
         std::cout << "Некоректний формат часу. Введіть час у форматі HH:MM або 0 для скасування.\n";
     }
 }
@@ -895,7 +896,7 @@ void AdminController::issueCard() {
             windows.push_back(window);
         }
 
-        _cards.issueCard(userId, pin, windows);
+        cardId = _cards.issueCard(userId, pin, windows);
         std::cout << "Картку успішно додано! ID картки: " << cardId << '\n';
     } catch (const std::exception& e) {
         std::cout << "Не вдалося додати картку: " << e.what() << '\n';

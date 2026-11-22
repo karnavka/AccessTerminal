@@ -135,7 +135,7 @@ void CardService::validateTimeWindow(const TimeWindow& window) {
     if (window.dayOfWeek < 0 || window.dayOfWeek > 6) {
         throw std::invalid_argument("День тижня має бути від 0 до 6");
     }
-    if (window.startMinute < 0 || window.startMinute >= 1440 || window.endMinute <= 0 || window.endMinute >= 1440) {
+    if (window.startMinute < 0 || window.startMinute >= 1440 || window.endMinute <= 0 || window.endMinute > 1440) {
         throw std::invalid_argument("Некоректний час");
     }
     if (window.startMinute >= window.endMinute) {
@@ -143,7 +143,6 @@ void CardService::validateTimeWindow(const TimeWindow& window) {
     }
 }
 
-// + щоб не перетиналися
 void CardService::validateWindows(const std::vector<TimeWindow>& windows) {
     for (const TimeWindow& window : windows) {
         validateTimeWindow(window);
