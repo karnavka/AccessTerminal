@@ -11,12 +11,11 @@
 #include <random>
 #include <sstream>
 
-//Закоментовані логи бо тре реалізувати і то шо або в аксес полісі або я хз чи його сюди
-CardService::CardService(sqlite3 *db, CardRepository &cards, const HashService& hash,
+CardService::CardService(sqlite3 *db, CardRepository &cards, const HashService &hash,
                          SecurityConfig config, Clock clock)
     : db_(db), cards_(cards), hash_(hash), config_(config), clock_(std::move(clock)) {
 }
-//кількст
+
 void CardService::validatePin(const std::string &pin) {
     const bool digitsOnly = std::all_of(pin.begin(), pin.end(),
                                         [](unsigned char c) { return std::isdigit(c) != 0; });
@@ -54,7 +53,7 @@ void CardService::save(const CardEntity &card) {
     }
 }
 
-std::string CardService::issueCard(int userId, const std::string &pin,const std::vector<TimeWindow> &windows) {
+std::string CardService::issueCard(int userId, const std::string &pin, const std::vector<TimeWindow> &windows) {
     validatePin(pin);
     validateWindows(windows);
 
@@ -131,7 +130,7 @@ void CardService::changePin(const std::string &cardId, const std::string &newPin
     sp.release();
 }
 
-void CardService::validateTimeWindow(const TimeWindow& window) {
+void CardService::validateTimeWindow(const TimeWindow &window) {
     if (window.dayOfWeek < 0 || window.dayOfWeek > 6) {
         throw std::invalid_argument("День тижня має бути від 0 до 6");
     }
@@ -143,8 +142,8 @@ void CardService::validateTimeWindow(const TimeWindow& window) {
     }
 }
 
-void CardService::validateWindows(const std::vector<TimeWindow>& windows) {
-    for (const TimeWindow& window : windows) {
+void CardService::validateWindows(const std::vector<TimeWindow> &windows) {
+    for (const TimeWindow &window: windows) {
         validateTimeWindow(window);
     }
     for (size_t i = 0; i < windows.size(); i++) {
@@ -157,7 +156,7 @@ void CardService::validateWindows(const std::vector<TimeWindow>& windows) {
     }
 }
 
-void CardService::addTimeWindow(const std::string& cardId, const TimeWindow& window) {
+void CardService::addTimeWindow(const std::string &cardId, const TimeWindow &window) {
     Savepoint sp(db_, "add_time_window");
     CardEntity card = loadOrThrow(cardId);
     if (card.status == CardStatus::Revoked) {
@@ -169,7 +168,7 @@ void CardService::addTimeWindow(const std::string& cardId, const TimeWindow& win
     sp.release();
 }
 
-void CardService::removeTimeWindow(const std::string& cardId, int windowIndex) {
+void CardService::removeTimeWindow(const std::string &cardId, int windowIndex) {
     Savepoint sp(db_, "remove_time_window");
     CardEntity card = loadOrThrow(cardId);
     if (card.status == CardStatus::Revoked) {
@@ -183,7 +182,7 @@ void CardService::removeTimeWindow(const std::string& cardId, int windowIndex) {
     sp.release();
 }
 
-void CardService::editTimeWindow(const std::string& cardId, int windowIndex, const TimeWindow& newWindow) {
+void CardService::editTimeWindow(const std::string &cardId, int windowIndex, const TimeWindow &newWindow) {
     Savepoint sp(db_, "edit_time_window");
     CardEntity card = loadOrThrow(cardId);
     if (card.status == CardStatus::Revoked) {
@@ -263,4 +262,11 @@ std::vector<CardEntity> CardService::getCardsByUser(int userId) const {
 
 std::vector<CardEntity> CardService::getAllCards() const {
     return cards_.findAll();
+}
+
+std::string CardService::trimInput(const std::string &s) {
+    const auto first = s.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) return "";
+    const auto last = s.find_last_not_of(" \t\r\n");
+    return s.substr(first, last - first + 1);
 }

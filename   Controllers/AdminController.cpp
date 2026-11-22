@@ -36,9 +36,7 @@ bool readLine(std::string& line) {
         std::cout << '\n';
         return false;
     }
-    const auto first = line.find_first_not_of(" \t\r");
-    const auto last = line.find_last_not_of(" \t\r");
-    line = (first == std::string::npos) ? "" : line.substr(first, last - first + 1);
+    line = CardService::trimInput(line);
     return true;
 }
 
@@ -51,16 +49,18 @@ bool parseInt(const std::string& input, int& value) {
     return stream.eof();
 }
 
-bool isValidPin(const std::string& pin) {
-    if (pin.size() < 4 || pin.size() > 8) {
+bool cardIdOk(const std::string& id) {
+    return !id.empty() && id.size() <= 32;
+}
+
+bool pinOk(const std::string& pin) {
+    try {
+        CardService::validatePin(pin);
+        return true;
+    } catch (const std::invalid_argument& e) {
+        std::cout << e.what() << ". Спробуйте ще раз або введіть 0 для скасування.\n";
         return false;
     }
-    for (char ch : pin) {
-        if (!std::isdigit(static_cast<unsigned char>(ch))) {
-            return false;
-        }
-    }
-    return true;
 }
 
 std::tm toLocalTm(TimePoint tp) {
@@ -340,8 +340,10 @@ int chooseMenuItem(const std::string& title, const std::vector<MenuItem>& items)
 
 } // namespace
 
-AdminController::AdminController(UserService& users, CardService& cards, LogService& logs, HashService& hash)
-    : _users(users), _cards(cards), _logs(logs), _hash(hash) {}
+AdminController::AdminController(UserService &users, CardService &cards, LogService &logs,
+                                 HashService &hash, SecurityService &security)
+    : _users(users), _cards(cards), _logs(logs), _hash(hash), _security(security) {
+}
 
 void AdminController::run() {
     if (!login()) {
@@ -362,8 +364,8 @@ bool AdminController::login() {
         if (cardId == "0") {
             return false;
         }
-        if (cardId.empty()) {
-            std::cout << "ID картки не може бути порожнім. Спробуйте ще раз.\n";
+        if (!cardIdOk(cardId)) {
+            std::cout << "ID картки має містити від 1 до 32 символів. Спробуйте ще раз.\n";
             continue;
         }
 
@@ -403,33 +405,28 @@ bool AdminController::login() {
             return false;
         }
 
-        // для адміна часові вікна не перевіряємо, він може зайти будь-коли
-
         std::string pin;
         while (true) {
             std::cout << "Введіть PIN (0 - вийти): ";
-            if (!readLine(pin)) {
-                return false;
-            }
-            if (pin == "0") {
-                return false;
-            }
+            if (!readLine(pin)) return false;
+            if (pin == "0") return false;
 
             if (_hash.verify(pin, card->pinHash)) {
+                _security.onSuccessfulPin(cardId);
                 break;
             }
 
-            //адмін у нас один, тому його картку не блокуємо і пін можна вводити скільки завгодно
-            //(але в журнал невдалу спробу все одно пишемо)
+            _security.wrongPinOut(cardId);
+            card = _cards.getCard(cardId);
+            if (!card || card->status == CardStatus::Blocked) {
+                std::cout << "Забагато невдалих спроб. Картку заблоковано.\n";
+                return false;
+            }
             _logs.log(cardId, LogResult::Denied, LogReason::WrongPin);
             std::cout << "Неправильний PIN. Спробуйте ще раз.\n";
         }
-
-        _logs.log(cardId, LogResult::Success);
-
         _currentCardId = cardId;
         _currentUserId = card->userId;
-
         std::cout << "Вхід успішний.\n";
         return true;
 
@@ -620,11 +617,11 @@ void AdminController::filterLog() {
                 if (cardId == "0") {
                     return;
                 }
-                if (!cardId.empty()) {
+                if (cardIdOk(cardId)) {
                     filter.cardId = cardId;
                     break;
                 }
-                std::cout << "ID картки не може бути порожнім. Спробуйте ще раз або натисніть 0 для скасування.\n";
+                std::cout << "ID картки має містити від 1 до 32 символів. Спробуйте ще раз або натисніть 0 для скасування.\n";
             }
             break;
         }
@@ -663,18 +660,12 @@ void AdminController::addUser() {
             return;
         }
 
-        bool isEmpty = true;
-
-        for (char ch : name) {
-            if (!std::isspace(static_cast<unsigned char>(ch))) {
-                isEmpty = false;
-                break;
-            }
-        }
-        if (!isEmpty) {
+        try {
+            UserService::validateName(name);
             break;
+        } catch (const std::invalid_argument &e) {
+            std::cout << e.what() << ". Спробуйте ще раз або натисніть 0 для скасування.\n";
         }
-        std::cout << "Ім'я не може бути порожнім. Спробуйте ще раз або натисніть 0 для скасування.\n";
     }
 
     const int roleChoice = chooseMenuItem("\nОберіть роль:", {
@@ -752,22 +743,16 @@ int AdminController::readDayOfWeek(const std::string& prompt) {
     }
 }
 
-bool AdminController::isWindowOk(const TimeWindow& window, const std::vector<TimeWindow>& others) {
-    if (window.startMinute >= window.endMinute) {
-        std::cout << "Час початку має бути раніше за час завершення.\n";
+bool AdminController::isWindowOk(const TimeWindow &window, const std::vector<TimeWindow> &others) {
+    std::vector<TimeWindow> all = others;
+    all.push_back(window);
+    try {
+        CardService::validateWindows(all);
+        return true;
+    } catch (const std::invalid_argument &e) {
+        std::cout << e.what() << ".\n";
         return false;
     }
-
-    for (const TimeWindow& other : others) {
-        if (other.dayOfWeek == window.dayOfWeek &&
-            window.startMinute < other.endMinute &&
-            other.startMinute < window.endMinute) {
-            std::cout << "Це вікно перетинається з іншим вікном цього дня ("
-                      << formatMinutes(other.startMinute) << " - " << formatMinutes(other.endMinute) << ").\n";
-            return false;
-        }
-    }
-    return true;
 }
 
 bool AdminController::askYesNo(const std::string& question) {
@@ -838,10 +823,9 @@ void AdminController::issueCard() {
             std::cout << "Додавання картки скасовано.\n";
             return;
         }
-        if (isValidPin(pin)) {
+        if (pinOk(pin)) {
             break;
         }
-        std::cout << "PIN має складатися з 4-8 цифр. Спробуйте ще раз або введіть 0 для скасування.\n";
     }
 
     while (true) {
@@ -916,8 +900,8 @@ void AdminController::editCard() {
             std::cout << "Редагування картки скасовано.\n";
             return;
         }
-        if (cardId.empty()) {
-            std::cout << "ID картки не може бути порожнім. Спробуйте ще раз або введіть 0 для скасування.\n";
+        if (!cardIdOk(cardId)) {
+            std::cout << "ID картки має містити від 1 до 32 символів. Спробуйте ще раз або введіть 0 для скасування.\n";
             continue;
         }
         if (!_cards.getCard(cardId)) {
@@ -1266,8 +1250,7 @@ void AdminController::changePin(const std::string& cardId) {
             std::cout << "Зміну PIN скасовано.\n";
             return;
         }
-        if (!isValidPin(newPin)) {
-            std::cout << "PIN має складатися з 4-8 цифр. Спробуйте ще раз.\n";
+        if (!pinOk(newPin)) {
             continue;
         }
 

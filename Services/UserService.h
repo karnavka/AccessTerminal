@@ -16,6 +16,8 @@ public:
 
     bool hasActiveCard(int userId) const;
 
+    static void validateName(const std::string& name);
+
 private:
     UserRepository& _userRepo;
 };

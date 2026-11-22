@@ -5,18 +5,7 @@ UserService::UserService(UserRepository& userRepo)
     : _userRepo(userRepo) {}
 
 int UserService::addUser(const std::string& name, UserRole role) {
-    bool isEmpty = true;
-
-    for (char ch : name) {
-        if (!std::isspace(static_cast<unsigned char>(ch))) {
-            isEmpty = false;
-            break;
-        }
-    }
-    if (isEmpty) {
-        throw std::invalid_argument("Name cannot be empty");
-    }
-
+    validateName(name);
     return _userRepo.add(name, role);
 }
 
@@ -38,4 +27,17 @@ bool UserService::isAdmin(int userId) const {
 
 bool UserService::hasActiveCard(int userId) const {
     return _userRepo.hasActiveCard(userId);
+}
+
+void UserService::validateName(const std::string& name) {
+    const bool blank = std::all_of(name.begin(), name.end(),
+        [](unsigned char c) {
+            return std::isspace(c) != 0;
+        });
+    if (blank) {
+        throw std::invalid_argument("Ім'я не може бути порожнім");
+    }
+    if (name.size() > 100) {
+        throw std::invalid_argument("Ім'я задовге (максимум 100 символів)");
+    }
 }

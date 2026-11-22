@@ -18,8 +18,6 @@
 #include "Entity/SecurityConfig.h"
 #include "Services/HashService.h"
 
-//#include "SecurityConfig.h"
-
 struct FailedAttemptResult {
     bool blocked = false;
     int attemptsLeft = 0;
@@ -29,7 +27,7 @@ class CardService {
 public:
     using Clock = std::function<TimePoint()>;
 
-    CardService(sqlite3 *db, CardRepository &cards, const HashService& hash,
+    CardService(sqlite3 *db, CardRepository &cards, const HashService &hash,
                 SecurityConfig config,
                 Clock clock = [] { return std::chrono::system_clock::now(); });
 
@@ -43,11 +41,11 @@ public:
 
     void changePin(const std::string &cardId, const std::string &newPin);
 
-    void addTimeWindow(const std::string& cardId, const TimeWindow& window);
+    void addTimeWindow(const std::string &cardId, const TimeWindow &window);
 
-    void removeTimeWindow(const std::string& cardId, int windowIndex);
+    void removeTimeWindow(const std::string &cardId, int windowIndex);
 
-    void editTimeWindow(const std::string& cardId, int windowIndex, const TimeWindow& newWindow);
+    void editTimeWindow(const std::string &cardId, int windowIndex, const TimeWindow &newWindow);
 
     bool verifyPin(const std::string &cardId, const std::string &pin) const;
 
@@ -63,6 +61,14 @@ public:
 
     std::vector<CardEntity> getAllCards() const;
 
+    static void validatePin(const std::string &pin);
+
+    static void validateTimeWindow(const TimeWindow &window);
+
+    static void validateWindows(const std::vector<TimeWindow> &windows);
+
+    static std::string trimInput(const std::string &s);
+
 private:
     CardEntity loadOrThrow(const std::string &cardId) const;
 
@@ -70,15 +76,9 @@ private:
 
     void save(const CardEntity &card);
 
-    static void validatePin(const std::string &pin);
-
-    static void validateTimeWindow(const TimeWindow& window);
-
-    static void validateWindows(const std::vector<TimeWindow>& windows);
-
     sqlite3 *db_;
     CardRepository &cards_;
-    const HashService& hash_;
+    const HashService &hash_;
     SecurityConfig config_;
     Clock clock_;
 };
