@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include "  Controllers/TerminalController.h"
+#include "  Controllers/ConsoleInput.h"
 
 TerminalController::TerminalController(
     CardService& cards,
@@ -13,57 +14,64 @@ TerminalController::TerminalController(
    _entryTimeout(entryTimeout) {}
 
 void TerminalController::run() {
-    std::string input;
+    console::RawModeGuard rawMode;
+
+    std::cout << "\n===== ACCESS TERMINAL =====\n";
 
     while (true) {
         switch (_state) {
 
             case TerminalState::Idle: {
-                std::cout << "\n===== ACCESS TERMINAL =====\n";
-                std::cout << "Tap your card (0 - exit, !open / !close - door sensor): ";
-
-                if (!std::getline(std::cin, input)) {
+                const Input in = readInput("Tap your card (0 - exit, Tab - door sensor): ", false, true);
+                if (in.kind == InputKind::Eof) {
                     return;
                 }
-                if (input == "0") {
+                if (in.kind == InputKind::Interrupted) {
+                    break;
+                }
+                if (in.text == "0") {
                     return;
                 }
-                if (handleDoorCommand(input)) {
+                if (handleDoorCommand(in.text)) {
                     break;
                 }
 
-                onCardTapped(input);
+                onCardTapped(in.text);
                 break;
             }
 
             case TerminalState::WaitingForPin: {
-                std::cout << "Enter PIN (0 - cancel, !open / !close - door sensor): ";
-
-                if (!std::getline(std::cin, input)) {
+                const Input in = readInput("Enter PIN (0 - cancel, Tab - door sensor): ", true, true);
+                if (in.kind == InputKind::Eof) {
                     return;
                 }
-                if (input == "0") {
+                if (in.kind == InputKind::Interrupted) {
+                    break;
+                }
+                if (in.text == "0") {
                     reset();
                     break;
                 }
-                if (handleDoorCommand(input)) {
+                if (handleDoorCommand(in.text)) {
                     break;
                 }
 
-                onPinEntered(input);
+                onPinEntered(in.text);
                 break;
             }
 
             case TerminalState::WaitingForEntry: {
-                std::cout << "Двері розблоковано (!open / !close): ";
-
-                if (!std::getline(std::cin, input)) {
+                const Input in = readInput("Двері розблоковано (Tab - відчинити/зачинити): ", false, true);
+                if (in.kind == InputKind::Eof) {
                     return;
                 }
+                if (in.kind == InputKind::Interrupted) {
+                    break;
+                }
 
+                // сюди текст приходить лише в режимі без терміналу
                 checkEntryTimeout();
-
-                if (!handleDoorCommand(input)) {
+                if (!handleDoorCommand(in.text)) {
                     std::cout << "Невідома команда.\n";
                 }
                 break;
@@ -87,18 +95,91 @@ void TerminalController::run() {
     }
 }
 
+TerminalController::Input TerminalController::readInput(const std::string& prompt, bool mask, bool acceptText) {
+    std::cout << prompt << std::flush;
+
+    // не справжній термінал (Run у CLion, перенаправлений ввід): блокуючий getline,
+    // двері - командами !open / !close, таймаут перевіряється лише після вводу
+    if (!console::isInteractive()) {
+        std::string line;
+        if (!std::getline(std::cin, line)) {
+            return {InputKind::Eof, ""};
+        }
+        return {InputKind::Line, line};
+    }
+
+    const TerminalState startState = _state;
+    std::string buffer;
+
+    while (true) {
+        const console::KeyPress key = console::pollKey(100);
+
+        switch (key.kind) {
+            case console::KeyKind::None:
+                checkEntryTimeout();
+                if (_state != startState) {
+                    return {InputKind::Interrupted, ""};
+                }
+                break;
+
+            case console::KeyKind::Char:
+                if (acceptText && buffer.size() < 64) {
+                    buffer.push_back(key.ch);
+                    std::cout << (mask ? '*' : key.ch) << std::flush;
+                }
+                break;
+
+            case console::KeyKind::Backspace:
+                if (!buffer.empty()) {
+                    buffer.pop_back();
+                    std::cout << "\b \b" << std::flush;
+                }
+                break;
+
+            case console::KeyKind::Enter:
+                if (!acceptText) {
+                    break;
+                }
+                std::cout << '\n';
+                return {InputKind::Line, buffer};
+
+            case console::KeyKind::Tab:
+                std::cout << '\n';
+                toggleDoor();
+                if (_state != startState) {
+                    return {InputKind::Interrupted, ""};
+                }
+                // перемальовуємо рядок вводу разом з тим, що вже набрано
+                std::cout << prompt << (mask ? std::string(buffer.size(), '*') : buffer) << std::flush;
+                break;
+
+            case console::KeyKind::Eof:
+                std::cout << '\n';
+                return {InputKind::Eof, ""};
+        }
+    }
+}
+
+void TerminalController::toggleDoor() {
+    if (_door.isOpen()) {
+        onDoorClosed();
+    } else {
+        onDoorOpened();
+    }
+}
+
 void TerminalController::onCardTapped(const std::string& cardId) {
     if (_state != TerminalState::Idle) {
         return;
     }
     setState(TerminalState::CheckingCard);
 
-    if (cardId.empty()) {
-        denyAccess(LogReason::UnknownCard);
-        return;
-    }
-
     try {
+        if (cardId.empty()) {
+            denyAccess(LogReason::UnknownCard);
+            return;
+        }
+
         AccessDecision decision = _access.check(cardId, std::chrono::system_clock::now());
 
         if (!decision.allowed) {

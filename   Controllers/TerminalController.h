@@ -6,7 +6,6 @@
 #include <chrono>
 #include <optional>
 #include <string>
-
 #include "../Services/UserService.h"
 #include "../Services/CardService.h"
 #include "../Services/LogService.h"
@@ -61,6 +60,15 @@ private:
 
     //картка яка обробляється
     std::optional<std::string> _currentCardId;
+
+    enum class InputKind { Line, Interrupted, Eof };
+    struct Input {
+        InputKind kind;
+        std::string text;
+    };
+    // Interrupted - стан змінився під час очікування (дверна подія / таймаут)
+    Input readInput(const std::string& prompt, bool mask, bool acceptText);
+    void toggleDoor();
 };
 
 #endif //ACCESSTERMINAL_TERMINALCONTROLLER_H

@@ -30,6 +30,7 @@ add_executable(AccessTerminal
         "  Controllers/TerminalController.cpp"
         Services/HashService.cpp
         tests_part/TestsPart.cpp
+        "  Controllers/ConsoleInput.cpp"
 )
 
 
