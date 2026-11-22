@@ -18,7 +18,6 @@ std::tm toLocalTm(TimePoint tp) {
 
 AccessDecision deny(LogReason reason) { return {false, reason}; }
 
-//допоміжні функції для check
 bool isInWindow(const TimeWindow& w, int day, int minute) {
     return day == w.dayOfWeek && minute >= w.startMinute && minute < w.endMinute;
 }

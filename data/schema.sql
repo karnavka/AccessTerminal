@@ -24,10 +24,6 @@ CREATE TABLE IF NOT EXISTS cards (
     CHECK (blocked_until IS NULL OR status = 'Blocked')
 );
 
--- нам треба тільки 1 картка активна на корстувача??
--- CREATE UNIQUE INDEX IF NOT EXISTS ux_cards_one_live_per_user
---     ON cards(user_id) WHERE status <> 'Revoked';
-
 -- ---------------------------------------------------------------
 -- TimeWindow
 -- day_of_week: 0 = понеділок ... 6 = неділя

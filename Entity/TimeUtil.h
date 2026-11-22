@@ -5,10 +5,6 @@
 #include <stdexcept>
 #include <string>
 
-// ---
-// це повністю аішка - бо переводити з дати в рядки.. щось страшне
-// ---
-
 using TimePoint = std::chrono::system_clock::time_point;
 inline TimePoint now() { return std::chrono::system_clock::now(); }
 

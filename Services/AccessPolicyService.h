@@ -21,7 +21,6 @@ public:
 
     bool isAllowed(const std::string& cardId, TimePoint now);
 
-    // як isAllowed але ще повертає причину
     AccessDecision check(const std::string& cardId, TimePoint now);
 
 

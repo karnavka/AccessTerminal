@@ -15,7 +15,6 @@ namespace {
     constexpr std::size_t   SALT_BYTES  = 16;
     constexpr std::size_t   HASH_BYTES  = 32;
 
-    // випадкова сіль
     std::array<unsigned char, SALT_BYTES> makeSalt() {
         std::array<unsigned char, SALT_BYTES> salt{};
         std::random_device rd;

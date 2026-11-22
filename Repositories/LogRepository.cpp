@@ -1,7 +1,6 @@
 #include "LogRepository.h"
 #include "SqliteStatement.h"
 
-//це щоб зчитати з полів бази об'єкт с++, просто хелпер функція
 LogEntity readLog(const Statement& st) {
     LogEntity e;
     e.id        = st.columnInt(0);
