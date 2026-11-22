@@ -29,6 +29,11 @@ TerminalController::TerminalController(CardService& cards,
     : _cards(cards), _security(security), _access(access), _logs(logs), _door(door),
       _entryTimeout(entryTimeout), _clock(std::move(clock)) {}
 
+// Страховка: навіть якщо програма завершується достроково, двері не лишаються відчиненими/розблокованими.
+TerminalController::~TerminalController() {
+    shutdown();
+}
+
 // =====================================================================
 // Цикл і ввід
 // =====================================================================
@@ -51,7 +56,13 @@ void TerminalController::run() {
         }
     }
 
-    endSession();
+    // Будь-який вихід з терміналу (0, Ctrl+C/Ctrl+D, кінець вводу): скидаємо стан,
+    // фізично зачиняємо двері й блокуємо замок.
+    const bool wasOpenOrUnlocked = _door.isOpen() || !_door.isLocked();
+    shutdown();
+    if (wasOpenOrUnlocked) {
+        std::cout << "Вихід: двері зачинено й заблоковано.\n";
+    }
 }
 
 bool TerminalController::handleLine(const std::string& text) {
@@ -378,4 +389,12 @@ void TerminalController::endSession() {
     _currentCardId.reset();
     _door.lock();
     _state = State::Idle;
+}
+
+// Повне вимкнення терміналу: скидання стану + двері фізично зачинені + замок заблоковано.
+// На відміну від endSession() не залишає двері відчиненими (як це робить злам).
+void TerminalController::shutdown() {
+    endSession();
+    _door.simulateDoorClosed();
+    _door.lock();
 }

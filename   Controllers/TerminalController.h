@@ -40,6 +40,8 @@ public:
                        std::chrono::seconds entryTimeout,
                        Clock clock = [] { return std::chrono::steady_clock::now(); });
 
+    ~TerminalController();
+
     void run();
 
     // ---- події ----
@@ -80,6 +82,7 @@ private:
     void denyAccess(LogReason reason, const std::string& cardId);
     void abortOnError(const std::string& cardId, const std::exception& e);
     void endSession();
+    void shutdown();   // endSession + двері зачинені + замок заблоковано
 
     CardService& _cards;
     SecurityService& _security;
