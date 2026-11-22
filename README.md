@@ -86,9 +86,9 @@ An admin cannot block or revoke the card they are logged in with.
 build:
 ```bash
 cmake -S . -B build
-cmake --build build --target TerminalControllerTests
+cmake --build build --target ControllerTests
 ```
 run
 ```bash
-./build/TerminalControllerTests
+./build/ControllerTests
 ```

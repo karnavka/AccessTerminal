@@ -107,27 +107,27 @@ endif()
 # ---------------------------------------------------------------
 enable_testing()
 
-add_executable(TerminalControllerTests
-    tests_part/TerminalControllerTests.cpp
+add_executable(ControllerTests
+    tests_part/ControllerTests.cpp
 )
 
-target_include_directories(TerminalControllerTests PRIVATE
+target_include_directories(ControllerTests PRIVATE
     "${CMAKE_SOURCE_DIR}/  Controllers"
 )
 
-target_link_libraries(TerminalControllerTests PRIVATE access_core)
+target_link_libraries(ControllerTests PRIVATE access_core)
 
-target_compile_definitions(TerminalControllerTests PRIVATE
+target_compile_definitions(ControllerTests PRIVATE
     PROJECT_DIR="${CMAKE_SOURCE_DIR}"
 )
 
 if (MSVC)
-    target_compile_options(TerminalControllerTests PRIVATE /utf-8 /W4)
+    target_compile_options(ControllerTests PRIVATE /utf-8 /W4)
 else()
-    target_compile_options(TerminalControllerTests PRIVATE -Wall -Wextra)
+    target_compile_options(ControllerTests PRIVATE -Wall -Wextra)
 endif()
 
 add_test(
-    NAME TerminalControllerTests
-    COMMAND TerminalControllerTests
+    NAME ControllerTests
+    COMMAND ControllerTests
 )
