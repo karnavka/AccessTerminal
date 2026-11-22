@@ -100,7 +100,7 @@ int main() {
     DoorSimulator door;
 
     //Controllers
-    AdminController admin(users, cards, logs, hash);
+    AdminController admin(users, cards, logs, hash, security);
     TerminalController terminal(cards, security, access, logs, door, securityConfig.doorOpenTimeout);
 
     runMenu(terminal, admin);

@@ -7,10 +7,11 @@
 #include "../Services/CardService.h"
 #include "../Services/LogService.h"
 #include "../Services/HashService.h"
+#include "../Services/SecurityService.h"
 
 class AdminController {
 public:
-    AdminController(UserService& users, CardService& cards, LogService& logs, HashService& hash);
+    AdminController(UserService& users, CardService& cards, LogService& logs, HashService& hash,SecurityService& security);
 
     void run();
 
@@ -57,7 +58,7 @@ private:
     CardService& _cards;
     LogService& _logs;
     HashService& _hash;
-
+    SecurityService& _security;
     std::string _currentCardId;
     int _currentUserId = 0;
 };
