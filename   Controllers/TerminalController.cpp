@@ -29,7 +29,6 @@ TerminalController::TerminalController(CardService& cards,
     : _cards(cards), _security(security), _access(access), _logs(logs), _door(door),
       _entryTimeout(entryTimeout), _clock(std::move(clock)) {}
 
-// Страховка: навіть якщо програма завершується достроково, двері не лишаються відчиненими/розблокованими.
 TerminalController::~TerminalController() {
     shutdown();
 }
@@ -56,8 +55,6 @@ void TerminalController::run() {
         }
     }
 
-    // Будь-який вихід з терміналу (0, Ctrl+C/Ctrl+D, кінець вводу): скидаємо стан,
-    // фізично зачиняємо двері й блокуємо замок.
     const bool wasOpenOrUnlocked = _door.isOpen() || !_door.isLocked();
     shutdown();
     if (wasOpenOrUnlocked) {
@@ -144,8 +141,6 @@ TerminalController::Input TerminalController::readInput() {
     return tty ? readKeys(prompt, inputMode()) : readLineBlocking();
 }
 
-// Не справжній термінал (Run у CLion, перенаправлений ввід, тести):
-// блокуючий getline, двері - командами !open / !close.
 TerminalController::Input TerminalController::readLineBlocking() {
     std::string line;
     if (!std::getline(std::cin, line)) {
@@ -154,8 +149,6 @@ TerminalController::Input TerminalController::readLineBlocking() {
     return {InputKind::Line, trim(line)};
 }
 
-// Справжній термінал: читаємо клавіші по одній, щоб між натисканнями
-// перевіряти таймаут і обробляти Tab (датчик дверей).
 TerminalController::Input TerminalController::readKeys(const std::string& prompt, InputMode mode) {
     const State startState = _state;
     std::string buffer;
@@ -166,7 +159,7 @@ TerminalController::Input TerminalController::readKeys(const std::string& prompt
         switch (key.kind) {
             case console::KeyKind::None:
                 if (entryExpired()) {
-                    std::cout << '\n';   // щоб повідомлення не склеїлось із промптом
+                    std::cout << '\n';
                     checkEntryTimeout();
                     return {InputKind::Interrupted, ""};
                 }
@@ -234,7 +227,6 @@ void TerminalController::onCardTapped(const std::string& cardId) {
         _cards.releaseIfBlockExpired(cardId);
         const AccessDecision decision = _access.check(cardId, std::chrono::system_clock::now());
         if (!decision.allowed) {
-            // CHECK в access_log вимагає причину для Denied
             denyAccess(decision.reason.value_or(LogReason::UnknownCard), cardId);
             return;
         }
@@ -256,8 +248,6 @@ void TerminalController::onPinEntered(const std::string& pin) {
     const std::string cardId = *_currentCardId;
 
     try {
-        // З моменту прикладання картки її стан міг змінитися (відкликали, заблокували,
-        // закінчилось часове вікно). Перед видачею доступу перевіряємо політику ще раз.
         const AccessDecision decision = _access.check(cardId, std::chrono::system_clock::now());
         if (!decision.allowed) {
             denyAccess(decision.reason.value_or(LogReason::UnknownCard), cardId);
@@ -265,7 +255,7 @@ void TerminalController::onPinEntered(const std::string& pin) {
         }
 
         if (_cards.verifyPin(cardId, pin)) {
-            _security.onSuccessfulPin(cardId);   // скидання спроб + лог Success
+            _security.onSuccessfulPin(cardId);
             grantAccess();
         } else {
             handleFailedAttempt(cardId);
@@ -384,15 +374,13 @@ bool TerminalController::checkEntryTimeout() {
     return true;
 }
 
-// Єдине місце, де завершується сесія: замикаємо замок і скидаємо стан.
 void TerminalController::endSession() {
     _currentCardId.reset();
     _door.lock();
     _state = State::Idle;
 }
 
-// Повне вимкнення терміналу: скидання стану + двері фізично зачинені + замок заблоковано.
-// На відміну від endSession() не залишає двері відчиненими (як це робить злам).
+// не залишає двері відчиненими
 void TerminalController::shutdown() {
     endSession();
     _door.simulateDoorClosed();

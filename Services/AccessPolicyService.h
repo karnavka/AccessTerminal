@@ -21,9 +21,8 @@ public:
 
     AccessDecision check(const std::string& cardId, TimePoint now);
 
-
 private:
     CardService& cardService_;
 };
 
-#endif //ACCESSTERMINAL_ACCESSPOLICYSERVICE_H
+#endif

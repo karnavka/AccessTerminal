@@ -4,7 +4,6 @@
 #include <ctime>
 #include <vector>
 
-//це тре бо в бд у нас utc
 std::tm toLocalTm(TimePoint tp) {
     const std::time_t t = std::chrono::system_clock::to_time_t(tp);
     std::tm local{};
