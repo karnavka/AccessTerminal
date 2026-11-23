@@ -44,10 +44,6 @@ int minuteOfDay(TimePoint tp) {
 AccessPolicyService::AccessPolicyService(CardService& cardService)
     : cardService_(cardService) {}
 
-bool AccessPolicyService::isAllowed(const std::string& cardId, TimePoint now) {
-    return check(cardId, now).allowed;
-}
-
 AccessDecision AccessPolicyService::check(const std::string& cardId, TimePoint now) {
     auto card = cardService_.getCard(cardId);
     if (!card) {
@@ -59,13 +55,7 @@ AccessDecision AccessPolicyService::check(const std::string& cardId, TimePoint n
     }
 
     if (card->status == CardStatus::Blocked) {
-        if (!cardService_.releaseIfBlockExpired(cardId)) {
-            return deny(LogReason::Blocked);
-        }
-        card = cardService_.getCard(cardId);
-        if (!card) {
-            return deny(LogReason::UnknownCard);
-        }
+        return deny(LogReason::Blocked);
     }
 
     if (!isInAnyWindow(card->timeWindows, dayOfWeek(now), minuteOfDay(now))) {

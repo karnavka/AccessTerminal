@@ -19,8 +19,6 @@ class AccessPolicyService {
 public:
     explicit AccessPolicyService(CardService& cardService);
 
-    bool isAllowed(const std::string& cardId, TimePoint now);
-
     AccessDecision check(const std::string& cardId, TimePoint now);
 
 

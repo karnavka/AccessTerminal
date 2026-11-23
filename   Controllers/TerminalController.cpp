@@ -231,8 +231,8 @@ void TerminalController::onCardTapped(const std::string& cardId) {
     }
 
     try {
+        _cards.releaseIfBlockExpired(cardId);
         const AccessDecision decision = _access.check(cardId, std::chrono::system_clock::now());
-
         if (!decision.allowed) {
             // CHECK в access_log вимагає причину для Denied
             denyAccess(decision.reason.value_or(LogReason::UnknownCard), cardId);
