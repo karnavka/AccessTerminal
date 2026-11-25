@@ -1,5 +1,6 @@
 #include "UserService.h"
 #include <stdexcept>
+#include <algorithm>
 
 UserService::UserService(UserRepository& userRepo)
     : _userRepo(userRepo) {}
