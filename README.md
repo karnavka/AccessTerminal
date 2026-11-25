@@ -6,11 +6,21 @@ users, cards and the access log.
 ### How to run?
 through terminal (with CMake):
 
+Linux / macOS:
 ```bash
 cmake -S . -B build
 cmake --build build
 ./build/AccessTerminal
 ```
+
+Windows (use *Developer PowerShell for VS*):
+
+```powershell
+cmake -S . -B build
+cmake --build build
+.\build\Debug\AccessTerminal.exe
+```
+
 Run it from the project root.
 Use a real terminal (not IDE "run". If usin CLine - use "simulate terminal")
 
@@ -82,6 +92,7 @@ An admin cannot block or revoke the card they are logged in with.
 | User  | testcard | 0000     |
 
 ## run tests
+**Linux / macOS:**
 
 build:
 ```bash
@@ -91,4 +102,17 @@ cmake --build build --target ControllerTests
 run
 ```bash
 ./build/ControllerTests
+```
+
+**Windows** (use *Developer PowerShell for VS*):
+
+build: 
+```powershell
+cmake -S . -B build
+cmake --build build --target ControllerTests
+```
+
+run
+```powershell
+.\build\Debug\ControllerTests.exe
 ```
